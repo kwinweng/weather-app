@@ -121,6 +121,51 @@
             margin: 0 auto;
         }
 
+        /* 7-Day Trend Chart */
+        .trend-section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-card);
+            padding: 16px;
+        }
+
+        .trend-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .trend-canvas-container {
+            height: 160px;
+            position: relative;
+        }
+
+        .trend-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Section Divider */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 24px 0 16px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .section-divider::before,
+        .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-light);
+        }
+
         /* Day Card */
         .day-card {
             background: var(--bg-card);
@@ -128,6 +173,27 @@
             margin-bottom: 16px;
             box-shadow: var(--shadow-card);
             overflow: hidden;
+        }
+
+        .day-card.historical {
+            opacity: 0.7;
+            background: #f8fafc;
+        }
+
+        .day-card.historical .day-header:hover {
+            background: #edf2f7;
+        }
+
+        .day-card.historical .temp-high {
+            color: #a0aec0;
+        }
+
+        .day-card.historical .day-label {
+            color: #a0aec0;
+        }
+
+        .day-card.historical .day-icon {
+            filter: grayscale(0.5);
         }
 
         .day-header {
@@ -318,6 +384,9 @@
             .temp-low {
                 font-size: 16px;
             }
+            .trend-canvas-container {
+                height: 140px;
+            }
         }
     </style>
 </head>
@@ -463,7 +532,16 @@
             return Math.abs(diff) + '天前 · ' + weekday;
         }
 
-        // Draw chart using Canvas
+        // Check if a day is historical (before today)
+        function isHistorical(date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(date);
+            target.setHours(0, 0, 0, 0);
+            return target < today;
+        }
+
+        // Draw hourly chart using Canvas
         function drawChart(canvas, temps, rainProbs) {
             const ctx = canvas.getContext('2d');
             const dpr = window.devicePixelRatio || 1;
@@ -478,9 +556,7 @@
             const chartW = w - padding.left - padding.right;
             const chartH = h - padding.top - padding.bottom;
 
-            // Clear
             ctx.clearRect(0, 0, w, h);
-
             if (temps.length === 0) return;
 
             const minTemp = Math.min(...temps) - 2;
@@ -526,7 +602,7 @@
                 ctx.fill();
             });
 
-            // Rain probability bars (subtle)
+            // Rain probability bars
             const maxRain = 100;
             rainProbs.forEach((rain, i) => {
                 if (rain > 0) {
@@ -537,7 +613,7 @@
                 }
             });
 
-            // X axis labels (every 3 hours)
+            // X axis labels
             ctx.fillStyle = '#718096';
             ctx.font = '10px sans-serif';
             ctx.textAlign = 'center';
@@ -547,65 +623,206 @@
             }
         }
 
+        // Draw 7-day trend chart
+        function drawTrendChart(canvas, days) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const w = rect.width;
+            const h = rect.height;
+            const padding = { top: 30, right: 20, bottom: 50, left: 40 };
+            const chartW = w - padding.left - padding.right;
+            const chartH = h - padding.top - padding.bottom;
+
+            ctx.clearRect(0, 0, w, h);
+            if (days.length === 0) return;
+
+            // Collect all temps
+            const allMaxTemps = days.map(d => Math.max(...d.temps));
+            const allMinTemps = days.map(d => Math.min(...d.temps));
+            const allTemps = [...allMaxTemps, ...allMinTemps];
+            const minTemp = Math.min(...allTemps) - 2;
+            const maxTemp = Math.max(...allTemps) + 2;
+            const tempRange = maxTemp - minTemp || 1;
+
+            // Grid lines
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding.top + (chartH * i / 4);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(w - padding.right, y);
+                ctx.stroke();
+
+                const tempVal = Math.round(maxTemp - (tempRange * i / 4));
+                ctx.fillStyle = '#718096';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(tempVal + '°', padding.left - 6, y + 4);
+            }
+
+            const n = days.length;
+            const stepX = chartW / (n - 1 || 1);
+
+            // Draw max temp line (orange)
+            ctx.strokeStyle = '#ed8936';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            allMaxTemps.forEach((temp, i) => {
+                const x = padding.left + stepX * i;
+                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Draw min temp line (blue)
+            ctx.strokeStyle = '#3182ce';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            allMinTemps.forEach((temp, i) => {
+                const x = padding.left + stepX * i;
+                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Points and labels
+            allMaxTemps.forEach((temp, i) => {
+                const x = padding.left + stepX * i;
+                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
+
+                // Max temp point
+                ctx.fillStyle = '#ed8936';
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Max temp label
+                ctx.fillStyle = '#ed8936';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(Math.round(temp) + '°', x, y - 10);
+            });
+
+            allMinTemps.forEach((temp, i) => {
+                const x = padding.left + stepX * i;
+                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
+
+                // Min temp point
+                ctx.fillStyle = '#3182ce';
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Min temp label
+                ctx.fillStyle = '#3182ce';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(Math.round(temp) + '°', x, y + 18);
+            });
+
+            // X axis labels - date and weekday
+            days.forEach((day, i) => {
+                const x = padding.left + stepX * i;
+                const date = day.date;
+                const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+                const weekday = weekdays[date.getDay()];
+                const isHist = isHistorical(date);
+
+                ctx.fillStyle = isHist ? '#a0aec0' : '#4a5568';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(weekday, x, h - padding.bottom + 18);
+
+                ctx.fillStyle = isHist ? '#cbd5e0' : '#718096';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(`${date.getMonth()+1}/${date.getDate()}`, x, h - padding.bottom + 32);
+
+                // Weather icon
+                const dominantCode = day.hours[Math.floor(day.hours.length/2)].code;
+                ctx.font = '16px sans-serif';
+                ctx.fillText(getWeatherIcon(dominantCode), x, h - padding.bottom + 48);
+            });
+
+            // Legend
+            ctx.fillStyle = '#ed8936';
+            ctx.beginPath();
+            ctx.arc(w - 70, 12, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#718096';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('最高温', w - 62, 16);
+
+            ctx.strokeStyle = '#3182ce';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(w - 20, 12);
+            ctx.lineTo(w - 8, 12);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#3182ce';
+            ctx.beginPath();
+            ctx.arc(w - 14, 12, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         // Render weather
         function renderWeather() {
             const content = document.getElementById('content');
             const days = groupByDay(weatherData.hourly);
 
-            let html = '';
-            days.forEach((day, idx) => {
-                const maxTemp = Math.max(...day.temps);
-                const minTemp = Math.min(...day.temps);
-                const avgHumidity = Math.round(day.hours.reduce((a, h) => a + h.humidity, 0) / day.hours.length);
-                const maxWind = Math.max(...day.hours.map(h => h.wind));
-                const maxRain = Math.max(...day.rainProbs);
-                const dominantCode = day.hours[Math.floor(day.hours.length/2)].code;
+            // Split into historical and forecast
+            const historical = days.filter(d => isHistorical(d.date));
+            const forecast = days.filter(d => !isHistorical(d.date));
 
-                html += `
-                    <div class="day-card ${idx === days.length - 1 ? 'expanded' : ''}" data-day="${idx}">
-                        <div class="day-header" onclick="toggleDay(${idx})">
-                            <div class="day-info">
-                                <div class="day-icon">${getWeatherIcon(dominantCode)}</div>
-                                <div class="day-text">
-                                    <div class="day-label">${getDayLabel(day.date)} ${day.date.getMonth()+1}/${day.date.getDate()}</div>
-                                    <div class="day-stats">
-                                        <span class="summary-item">💧 ${avgHumidity}%</span>
-                                        <span class="summary-item">💨 ${maxWind}km/h</span>
-                                        <span class="summary-item">🌧️ ${maxRain}%</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="day-temp">
-                                <span class="temp-high">${Math.round(maxTemp)}°</span>
-                                <span class="temp-low">${Math.round(minTemp)}°</span>
-                                <span class="expand-icon">▼</span>
-                            </div>
-                        </div>
-                        <div class="hourly-detail">
-                            <div class="chart-container">
-                                <canvas class="chart-canvas" id="chart-${idx}"></canvas>
-                            </div>
-                            <div class="hourly-list">
-                                ${day.hours.map(h => `
-                                    <div class="hour-row">
-                                        <div class="hour-time">${h.time.toString().padStart(2,'0')}:00</div>
-                                        <div class="hour-icon">${getWeatherIcon(h.code)}</div>
-                                        <div class="hour-desc">${getWeatherDesc(h.code)}</div>
-                                        <div class="hour-temp">${Math.round(h.temp)}°</div>
-                                        <div class="hour-humidity">${h.humidity}%</div>
-                                        <div class="hour-rain">${h.rainProb}%</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
+            let html = '';
+
+            // 7-Day Trend Chart
+            html += `
+                <div class="trend-section">
+                    <div class="trend-title">📈 7日温度趋势</div>
+                    <div class="trend-canvas-container">
+                        <canvas class="trend-canvas" id="trendChart"></canvas>
                     </div>
-                `;
-            });
+                </div>
+            `;
+
+            // Historical section
+            if (historical.length > 0) {
+                html += `<div class="section-divider">⏮️ 历史天气</div>`;
+                historical.forEach((day, idx) => {
+                    html += renderDayCard(day, idx, true);
+                });
+            }
+
+            // Forecast section
+            if (forecast.length > 0) {
+                html += `<div class="section-divider">🔮 预报天气</div>`;
+                forecast.forEach((day, idx) => {
+                    html += renderDayCard(day, idx, false);
+                });
+            }
 
             content.innerHTML = html;
 
             // Draw charts after DOM update
             setTimeout(() => {
+                const trendCanvas = document.getElementById('trendChart');
+                if (trendCanvas) {
+                    drawTrendChart(trendCanvas, days);
+                }
+
                 days.forEach((day, idx) => {
                     const canvas = document.getElementById(`chart-${idx}`);
                     if (canvas) {
@@ -613,6 +830,57 @@
                     }
                 });
             }, 50);
+        }
+
+        // Render a single day card
+        function renderDayCard(day, idx, isHist) {
+            const maxTemp = Math.max(...day.temps);
+            const minTemp = Math.min(...day.temps);
+            const avgHumidity = Math.round(day.hours.reduce((a, h) => a + h.humidity, 0) / day.hours.length);
+            const maxWind = Math.max(...day.hours.map(h => h.wind));
+            const maxRain = Math.max(...day.rainProbs);
+            const dominantCode = day.hours[Math.floor(day.hours.length/2)].code;
+            const isToday = new Date().toDateString() === day.date.toDateString();
+
+            return `
+                <div class="day-card ${isHist ? 'historical' : ''} ${isToday ? 'expanded' : ''}" data-day="${idx}">
+                    <div class="day-header" onclick="toggleDay(${idx})">
+                        <div class="day-info">
+                            <div class="day-icon">${getWeatherIcon(dominantCode)}</div>
+                            <div class="day-text">
+                                <div class="day-label">${getDayLabel(day.date)} ${day.date.getMonth()+1}/${day.date.getDate()}</div>
+                                <div class="day-stats">
+                                    <span class="summary-item">💧 ${avgHumidity}%</span>
+                                    <span class="summary-item">💨 ${maxWind}km/h</span>
+                                    <span class="summary-item">🌧️ ${maxRain}%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="day-temp">
+                            <span class="temp-high">${Math.round(maxTemp)}°</span>
+                            <span class="temp-low">${Math.round(minTemp)}°</span>
+                            <span class="expand-icon">▼</span>
+                        </div>
+                    </div>
+                    <div class="hourly-detail">
+                        <div class="chart-container">
+                            <canvas class="chart-canvas" id="chart-${idx}"></canvas>
+                        </div>
+                        <div class="hourly-list">
+                            ${day.hours.map(h => `
+                                <div class="hour-row">
+                                    <div class="hour-time">${h.time.toString().padStart(2,'0')}:00</div>
+                                    <div class="hour-icon">${getWeatherIcon(h.code)}</div>
+                                    <div class="hour-desc">${getWeatherDesc(h.code)}</div>
+                                    <div class="hour-temp">${Math.round(h.temp)}°</div>
+                                    <div class="hour-humidity">${h.humidity}%</div>
+                                    <div class="hour-rain">${h.rainProb}%</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function toggleDay(idx) {
