@@ -2,37 +2,32 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>天气查询 - 逐小时预报</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>运营天气 - 网约车决策辅助</title>
     <style>
         :root {
-            --bg-primary: #f0f4f8;
+            --brand-primary: #4c6ef5;
+            --brand-secondary: #748ffc;
+            --bg-primary: #f8fafc;
             --bg-card: #ffffff;
-            --bg-hover: #e8f0fe;
+            --bg-hover: #edf2ff;
             --text-primary: #1a1a2e;
             --text-secondary: #4a5568;
-            --text-muted: #718096;
-            --accent-blue: #3182ce;
-            --accent-sky: #63b3ed;
-            --accent-orange: #ed8936;
-            --accent-red: #e53e3e;
-            --accent-green: #38a169;
-            --border-light: #e2e8f0;
-            --shadow-card: 0 2px 8px rgba(0,0,0,0.08);
-            --shadow-hover: 0 4px 16px rgba(0,0,0,0.12);
-            --radius: 12px;
+            --text-muted: #8a94a6;
+            --accent-blue: #4c6ef5;
+            --accent-sky: #74c0fc;
+            --accent-orange: #ff922b;
+            --accent-red: #ff6b6b;
+            --accent-green: #51cf66;
+            --accent-yellow: #fcc419;
+            --border-light: #e9ecef;
+            --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-hover: 0 4px 12px rgba(76, 110, 245, 0.12);
+            --radius: 14px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
@@ -40,23 +35,36 @@
             color: var(--text-primary);
             line-height: 1.5;
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #4c6ef5 0%, #6741d9 100%);
             color: white;
-            padding: 20px 16px;
+            padding: 16px;
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 2px 12px rgba(102,126,234,0.3);
+            box-shadow: 0 4px 16px rgba(76, 110, 245, 0.25);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
         }
 
         .header h1 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
-            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .header-date {
+            font-size: 13px;
+            opacity: 0.9;
         }
 
         .city-selector {
@@ -65,33 +73,30 @@
             overflow-x: auto;
             padding-bottom: 4px;
             scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
         }
-
-        .city-selector::-webkit-scrollbar {
-            display: none;
-        }
+        .city-selector::-webkit-scrollbar { display: none; }
 
         .city-btn {
             flex-shrink: 0;
-            padding: 8px 16px;
+            padding: 6px 14px;
             border-radius: 20px;
             border: 1px solid rgba(255,255,255,0.3);
             background: rgba(255,255,255,0.15);
             color: white;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
         }
-
         .city-btn.active {
             background: white;
-            color: #667eea;
+            color: var(--brand-primary);
             font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
-
-        .city-btn:active {
-            transform: scale(0.95);
-        }
+        .city-btn:not(.active):hover { background: rgba(255,255,255,0.25); }
+        .city-btn:active { transform: scale(0.95); }
 
         /* Loading */
         .loading {
@@ -99,206 +104,297 @@
             padding: 60px 20px;
             color: var(--text-muted);
         }
-
         .loading-spinner {
-            width: 40px;
-            height: 40px;
+            width: 36px; height: 36px;
             border: 3px solid var(--border-light);
             border-top-color: var(--accent-blue);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
             margin: 0 auto 16px;
         }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* Content */
         .content {
-            padding: 16px;
+            padding: 12px;
             max-width: 800px;
             margin: 0 auto;
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 7-Day Trend Chart */
-        .trend-section {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            margin-bottom: 16px;
-            box-shadow: var(--shadow-card);
-            padding: 16px;
-        }
-
-        .trend-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-secondary);
+        /* Alert Cards */
+        .alert-section {
             margin-bottom: 12px;
         }
 
-        .trend-canvas-container {
-            height: 160px;
-            position: relative;
-        }
-
-        .trend-canvas {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Section Divider */
-        .section-divider {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 24px 0 16px;
-            color: var(--text-muted);
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .section-divider::before,
-        .section-divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border-light);
-        }
-
-        /* Day Card */
-        .day-card {
+        .alert-card {
             background: var(--bg-card);
             border-radius: var(--radius);
-            margin-bottom: 16px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
             box-shadow: var(--shadow-card);
+            border-left: 4px solid var(--accent-red);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .alert-card.warning {
+            border-left-color: var(--accent-yellow);
+        }
+
+        .alert-card.opportunity {
+            border-left-color: var(--accent-orange);
+        }
+
+        .alert-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .alert-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .alert-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .action-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #fff5f5;
+            color: var(--accent-red);
+        }
+
+        .action-tag.suggest {
+            background: #fff9db;
+            color: #f59f00;
+        }
+
+        /* Dashboard */
+        .dashboard-section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow-card);
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .city-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        @media (min-width: 480px) {
+            .city-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (min-width: 640px) {
+            .city-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        .city-item {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            position: relative;
             overflow: hidden;
         }
 
-        .day-card.historical {
-            opacity: 0.7;
-            background: #f8fafc;
+        .city-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
         }
 
-        .day-card.historical .day-header:hover {
-            background: #edf2f7;
-        }
-
-        .day-card.historical .temp-high {
-            color: #a0aec0;
-        }
-
-        .day-card.historical .day-label {
-            color: #a0aec0;
-        }
-
-        .day-card.historical .day-icon {
-            filter: grayscale(0.5);
-        }
-
-        .day-header {
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .day-header:hover {
+        .city-item.active-city {
+            border-color: var(--brand-primary);
             background: var(--bg-hover);
         }
 
-        .day-info {
-            display: flex;
+        .city-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .city-item.level-high-demand::before { background: var(--accent-red); }
+        .city-item.level-opportunity::before { background: var(--accent-orange); }
+        .city-item.level-risk::before { background: var(--accent-yellow); }
+        .city-item.level-normal::before { background: var(--accent-green); }
+        .city-item.level-low::before { background: var(--accent-sky); }
+
+        .city-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .city-weather-icon {
+            font-size: 28px;
+            margin: 4px 0;
+        }
+
+        .city-temp {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .city-level {
+            display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 4px;
+            margin-top: 6px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
         }
 
-        .day-icon {
-            font-size: 32px;
+        .level-high-demand .city-level { background: #fff5f5; color: var(--accent-red); }
+        .level-opportunity .city-level { background: #fff9db; color: #f59f00; }
+        .level-risk .city-level { background: #fff9db; color: #f59f00; }
+        .level-normal .city-level { background: #e6fcf5; color: var(--accent-green); }
+        .level-low .city-level { background: #e7f5ff; color: var(--accent-blue); }
+
+        /* Detail View */
+        .detail-section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow-card);
         }
 
-        .day-text {
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .detail-city {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .detail-level {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .detail-summary {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        .detail-summary-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .detail-summary-text {
+            font-size: 14px;
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .detail-advice {
             display: flex;
             flex-direction: column;
-        }
-
-        .day-label {
-            font-size: 14px;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        .day-date {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .day-temp {
-            display: flex;
-            align-items: center;
             gap: 8px;
+            margin-bottom: 16px;
         }
 
-        .temp-high {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--accent-orange);
-        }
-
-        .temp-low {
-            font-size: 18px;
-            color: var(--text-muted);
-        }
-
-        .day-stats {
+        .advice-item {
             display: flex;
-            gap: 12px;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg-primary);
+            border-radius: 10px;
+            font-size: 13px;
         }
 
-        .expand-icon {
-            font-size: 20px;
-            color: var(--text-muted);
-            transition: transform 0.3s;
+        .advice-icon {
+            font-size: 18px;
+            flex-shrink: 0;
         }
 
-        .day-card.expanded .expand-icon {
-            transform: rotate(180deg);
+        .advice-text {
+            color: var(--text-secondary);
+            line-height: 1.6;
         }
 
-        /* Hourly Detail */
-        .hourly-detail {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
+        /* Hourly List */
+        .hourly-section {
+            margin-top: 16px;
         }
 
-        .day-card.expanded .hourly-detail {
-            max-height: 2000px;
-        }
-
-        .chart-container {
-            padding: 16px;
-            height: 200px;
-            position: relative;
-        }
-
-        .chart-canvas {
-            width: 100%;
-            height: 100%;
-        }
-
-        .hourly-list {
-            padding: 0 16px 16px;
+        .hourly-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
         }
 
         .hour-row {
             display: grid;
-            grid-template-columns: 50px 40px 1fr 60px 50px 50px;
+            grid-template-columns: 50px 30px 1fr 50px 60px;
             gap: 8px;
             align-items: center;
             padding: 10px 0;
@@ -306,9 +402,7 @@
             font-size: 13px;
         }
 
-        .hour-row:last-child {
-            border-bottom: none;
-        }
+        .hour-row:last-child { border-bottom: none; }
 
         .hour-time {
             color: var(--text-secondary);
@@ -316,12 +410,13 @@
         }
 
         .hour-icon {
-            font-size: 20px;
+            font-size: 18px;
             text-align: center;
         }
 
         .hour-desc {
             color: var(--text-secondary);
+            font-size: 12px;
         }
 
         .hour-temp {
@@ -330,81 +425,152 @@
             text-align: right;
         }
 
-        .hour-humidity {
-            color: var(--accent-blue);
+        .hour-level {
             text-align: right;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 8px;
         }
 
-        .hour-rain {
-            color: var(--accent-sky);
-            text-align: right;
+        .level-tag-high { background: #fff5f5; color: var(--accent-red); }
+        .level-tag-opportunity { background: #fff9db; color: #f59f00; }
+        .level-tag-risk { background: #fff9db; color: #f59f00; }
+        .level-tag-normal { background: #e6fcf5; color: var(--accent-green); }
+        .level-tag-low { background: #e7f5ff; color: var(--accent-blue); }
+
+        /* Chart */
+        .chart-container {
+            height: 180px;
+            position: relative;
+            margin: 12px 0;
         }
 
-        .hour-wind {
-            color: var(--text-muted);
-            text-align: right;
+        .chart-canvas {
+            width: 100%;
+            height: 100%;
         }
 
-        /* Summary bar */
-        .summary-bar {
+        /* Tab Switch */
+        .tab-bar {
             display: flex;
-            padding: 12px 16px;
-            gap: 16px;
-            font-size: 12px;
-            color: var(--text-muted);
-            background: #f8fafc;
-            border-top: 1px solid var(--border-light);
+            gap: 8px;
+            margin-bottom: 16px;
+            background: var(--bg-primary);
+            border-radius: 10px;
+            padding: 4px;
         }
 
-        .summary-item {
+        .tab-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: var(--brand-primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Historical Cards */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .history-item {
             display: flex;
             align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-primary);
+            border-radius: 10px;
+            opacity: 0.85;
+        }
+
+        .history-date {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+
+        .history-icon {
+            font-size: 24px;
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-weather {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .history-level {
+            display: inline-flex;
+            align-items: center;
             gap: 4px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
         }
 
         /* Error */
         .error-msg {
             text-align: center;
-            padding: 40px 20px;
+            padding: 32px 24px;
             color: var(--accent-red);
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: var(--radius);
+            margin: 16px 0;
+        }
+        .error-msg::before {
+            content: '⚠️';
+            font-size: 32px;
+            display: block;
+            margin-bottom: 12px;
         }
 
         /* Responsive */
-        @media (max-width: 480px) {
-            .hour-row {
-                grid-template-columns: 45px 35px 1fr 55px 45px;
-                font-size: 12px;
-            }
-            .hour-wind {
-                display: none;
-            }
-            .temp-high {
-                font-size: 20px;
-            }
-            .temp-low {
-                font-size: 16px;
-            }
-            .trend-canvas-container {
-                height: 140px;
-            }
+        @media (max-width: 360px) {
+            .city-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .city-item { padding: 10px; }
+            .hour-row { grid-template-columns: 45px 28px 1fr 45px 55px; font-size: 12px; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>☀️ 天气查询</h1>
+        <div class="header-top">
+            <h1>🚗 运营天气</h1>
+            <span class="header-date" id="headerDate"></span>
+        </div>
         <div class="city-selector" id="citySelector"></div>
     </div>
 
     <div class="content" id="content">
         <div class="loading">
             <div class="loading-spinner"></div>
-            <p>正在加载天气数据...</p>
+            <p>正在加载运营天气数据...</p>
         </div>
     </div>
 
     <script>
-        // 国内热门城市
+        // 城市数据
         const CITIES = [
             { name: '北京', lat: 39.9042, lon: 116.4074 },
             { name: '上海', lat: 31.2304, lon: 121.4737 },
@@ -422,6 +588,17 @@
 
         let currentCity = CITIES[0];
         let weatherData = null;
+        let allCityData = {};
+        let currentView = 'dashboard'; // dashboard | detail
+
+        // 业务影响等级定义
+        const LEVELS = {
+            HIGH_DEMAND: { code: 'high-demand', label: '高需求机会', color: '#ff6b6b', icon: '🔴' },
+            OPPORTUNITY: { code: 'opportunity', label: '中等机会', color: '#ff922b', icon: '🟠' },
+            RISK: { code: 'risk', label: '供给风险', color: '#fcc419', icon: '🟡' },
+            NORMAL: { code: 'normal', label: '正常', color: '#51cf66', icon: '🟢' },
+            LOW: { code: 'low', label: '低需求', color: '#4c6ef5', icon: '🔵' }
+        };
 
         // WMO Weather codes
         function getWeatherIcon(code) {
@@ -439,7 +616,7 @@
 
         function getWeatherDesc(code) {
             const desc = {
-                0: '晴朗', 1: ' mainly clear', 2: '多云', 3: '阴天',
+                0: '晴朗', 1: '大部晴朗', 2: '多云', 3: '阴天',
                 45: '雾', 48: '雾凇',
                 51: '毛毛雨', 53: '小雨', 55: '中雨',
                 61: '小雨', 63: '中雨', 65: '大雨',
@@ -450,7 +627,59 @@
             return desc[code] || '多云';
         }
 
-        // Initialize city selector
+        // 计算业务影响等级
+        function calculateLevel(temp, rainProb, windSpeed, weatherCode) {
+            // 极端天气优先判断
+            if (weatherCode >= 95) return LEVELS.RISK; // 雷暴
+            if (weatherCode >= 82) return LEVELS.LOW; // 暴雨
+            if (weatherCode >= 71 && weatherCode <= 75) return LEVELS.RISK; // 雪
+            if (windSpeed > 40) return LEVELS.RISK; // 大风
+            if (temp > 38 || temp < -10) return LEVELS.RISK; // 极端温度
+
+            // 中大雨
+            if (rainProb >= 70 || weatherCode >= 61) return LEVELS.HIGH_DEMAND;
+            if (rainProb >= 50 || weatherCode >= 51) return LEVELS.OPPORTUNITY;
+
+            // 小雨/降温
+            if (rainProb >= 30 || weatherCode >= 45) return LEVELS.OPPORTUNITY;
+            if (temp < 5) return LEVELS.OPPORTUNITY; // 寒冷
+
+            // 正常
+            return LEVELS.NORMAL;
+        }
+
+        // 获取运营建议
+        function getAdvice(level, rainProb, windSpeed, temp) {
+            const advices = {
+                'high-demand': [
+                    '💰 建议加司机补贴，提升供给',
+                    '📈 乘客需求上升，备足运力',
+                    '⏰ 关注晚高峰时段（18-21点）'
+                ],
+                'opportunity': [
+                    '👀 开始关注天气变化',
+                    '💡 准备补贴预案，视情况启动',
+                    '📊 监控实时发单量趋势'
+                ],
+                'risk': [
+                    '⚠️ 启动应急预案',
+                    '🚫 准备限流措施',
+                    '📢 向司机推送安全提醒'
+                ],
+                'normal': [
+                    '✅ 常规运营',
+                    '📋 保持标准补贴策略'
+                ],
+                'low': [
+                    '⬇️ 减少补贴投入',
+                    '🏠 引导司机休息',
+                    '💤 乘客出行意愿低'
+                ]
+            };
+            return advices[level.code] || advices['normal'];
+        }
+
+        // 初始化城市选择器
         function initCitySelector() {
             const selector = document.getElementById('citySelector');
             CITIES.forEach(city => {
@@ -467,54 +696,14 @@
             document.querySelectorAll('.city-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.textContent === city.name);
             });
-            loadWeather();
-        }
-
-        // Fetch weather data
-        async function loadWeather() {
-            const content = document.getElementById('content');
-            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>正在加载 ' + currentCity.name + ' 的天气数据...</p></div>';
-
-            try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentCity.lat}&longitude=${currentCity.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
-                const response = await fetch(url);
-                const data = await response.json();
-                weatherData = data;
-                renderWeather();
-            } catch (err) {
-                content.innerHTML = '<div class="error-msg">加载失败，请检查网络后重试<br>' + err.message + '</div>';
+            if (currentView === 'dashboard') {
+                showCityDetail(city);
+            } else {
+                loadCityData(city);
             }
         }
 
-        // Group hourly data by day
-        function groupByDay(hourly) {
-            const days = {};
-            for (let i = 0; i < hourly.time.length; i++) {
-                const date = new Date(hourly.time[i]);
-                const dateKey = date.toISOString().split('T')[0];
-                if (!days[dateKey]) {
-                    days[dateKey] = {
-                        date: date,
-                        hours: [],
-                        temps: [],
-                        rainProbs: []
-                    };
-                }
-                days[dateKey].hours.push({
-                    time: date.getHours(),
-                    temp: hourly.temperature_2m[i],
-                    humidity: hourly.relative_humidity_2m[i],
-                    rainProb: hourly.precipitation_probability[i],
-                    code: hourly.weather_code[i],
-                    wind: hourly.wind_speed_10m[i]
-                });
-                days[dateKey].temps.push(hourly.temperature_2m[i]);
-                days[dateKey].rainProbs.push(hourly.precipitation_probability[i]);
-            }
-            return Object.values(days).sort((a, b) => a.date - b.date);
-        }
-
-        // Get relative day label
+        // 获取日期标签
         function getDayLabel(date) {
             const today = new Date();
             today.setHours(0,0,0,0);
@@ -525,381 +714,352 @@
             const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
             const weekday = weekdays[date.getDay()];
 
-            if (diff === 0) return '今天 · ' + weekday;
-            if (diff === 1) return '明天 · ' + weekday;
-            if (diff === -1) return '昨天 · ' + weekday;
-            if (diff > 1) return diff + '天后 · ' + weekday;
-            return Math.abs(diff) + '天前 · ' + weekday;
+            if (diff === 0) return '今天';
+            if (diff === 1) return '明天';
+            if (diff === -1) return '昨天';
+            if (diff > 1) return diff + '天后';
+            return Math.abs(diff) + '天前';
         }
 
-        // Check if a day is historical (before today)
-        function isHistorical(date) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const target = new Date(date);
-            target.setHours(0, 0, 0, 0);
-            return target < today;
-        }
-
-        // Draw hourly chart using Canvas
-        function drawChart(canvas, temps, rainProbs) {
-            const ctx = canvas.getContext('2d');
-            const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
-
-            const w = rect.width;
-            const h = rect.height;
-            const padding = { top: 20, right: 20, bottom: 30, left: 40 };
-            const chartW = w - padding.left - padding.right;
-            const chartH = h - padding.top - padding.bottom;
-
-            ctx.clearRect(0, 0, w, h);
-            if (temps.length === 0) return;
-
-            const minTemp = Math.min(...temps) - 2;
-            const maxTemp = Math.max(...temps) + 2;
-            const tempRange = maxTemp - minTemp || 1;
-
-            // Grid lines
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 4; i++) {
-                const y = padding.top + (chartH * i / 4);
-                ctx.beginPath();
-                ctx.moveTo(padding.left, y);
-                ctx.lineTo(w - padding.right, y);
-                ctx.stroke();
-
-                const tempVal = Math.round(maxTemp - (tempRange * i / 4));
-                ctx.fillStyle = '#718096';
-                ctx.font = '11px sans-serif';
-                ctx.textAlign = 'right';
-                ctx.fillText(tempVal + '°', padding.left - 6, y + 4);
-            }
-
-            // Temperature line
-            ctx.strokeStyle = '#ed8936';
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            temps.forEach((temp, i) => {
-                const x = padding.left + (chartW * i / (temps.length - 1));
-                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-
-            // Temperature points
-            ctx.fillStyle = '#ed8936';
-            temps.forEach((temp, i) => {
-                const x = padding.left + (chartW * i / (temps.length - 1));
-                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Rain probability bars
-            const maxRain = 100;
-            rainProbs.forEach((rain, i) => {
-                if (rain > 0) {
-                    const x = padding.left + (chartW * i / (rainProbs.length - 1));
-                    const barH = (rain / maxRain) * 15;
-                    ctx.fillStyle = `rgba(99, 179, 237, ${0.3 + rain/200})`;
-                    ctx.fillRect(x - 2, h - padding.bottom - barH, 4, barH);
+        // 按天分组
+        function groupByDay(hourly) {
+            const days = {};
+            for (let i = 0; i < hourly.time.length; i++) {
+                const date = new Date(hourly.time[i]);
+                const dateKey = date.toISOString().split('T')[0];
+                if (!days[dateKey]) {
+                    days[dateKey] = {
+                        date: date,
+                        hours: [],
+                        temps: [],
+                        rainProbs: [],
+                        levels: []
+                    };
                 }
-            });
-
-            // X axis labels
-            ctx.fillStyle = '#718096';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'center';
-            for (let i = 0; i < temps.length; i += 3) {
-                const x = padding.left + (chartW * i / (temps.length - 1));
-                ctx.fillText(i + ':00', x, h - padding.bottom + 14);
+                const hour = {
+                    time: date.getHours(),
+                    temp: hourly.temperature_2m[i],
+                    humidity: hourly.relative_humidity_2m[i],
+                    rainProb: hourly.precipitation_probability[i],
+                    code: hourly.weather_code[i],
+                    wind: hourly.wind_speed_10m[i],
+                    level: calculateLevel(
+                        hourly.temperature_2m[i],
+                        hourly.precipitation_probability[i],
+                        hourly.wind_speed_10m[i],
+                        hourly.weather_code[i]
+                    )
+                };
+                days[dateKey].hours.push(hour);
+                days[dateKey].temps.push(hour.temp);
+                days[dateKey].rainProbs.push(hour.rainProb);
+                days[dateKey].levels.push(hour.level);
             }
+            return Object.values(days).sort((a, b) => a.date - b.date);
         }
 
-        // Draw 7-day trend chart
-        function drawTrendChart(canvas, days) {
-            const ctx = canvas.getContext('2d');
-            const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
-
-            const w = rect.width;
-            const h = rect.height;
-            const padding = { top: 30, right: 20, bottom: 50, left: 40 };
-            const chartW = w - padding.left - padding.right;
-            const chartH = h - padding.top - padding.bottom;
-
-            ctx.clearRect(0, 0, w, h);
-            if (days.length === 0) return;
-
-            // Collect all temps
-            const allMaxTemps = days.map(d => Math.max(...d.temps));
-            const allMinTemps = days.map(d => Math.min(...d.temps));
-            const allTemps = [...allMaxTemps, ...allMinTemps];
-            const minTemp = Math.min(...allTemps) - 2;
-            const maxTemp = Math.max(...allTemps) + 2;
-            const tempRange = maxTemp - minTemp || 1;
-
-            // Grid lines
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 4; i++) {
-                const y = padding.top + (chartH * i / 4);
-                ctx.beginPath();
-                ctx.moveTo(padding.left, y);
-                ctx.lineTo(w - padding.right, y);
-                ctx.stroke();
-
-                const tempVal = Math.round(maxTemp - (tempRange * i / 4));
-                ctx.fillStyle = '#718096';
-                ctx.font = '11px sans-serif';
-                ctx.textAlign = 'right';
-                ctx.fillText(tempVal + '°', padding.left - 6, y + 4);
+        // 获取一天的主导等级
+        function getDominantLevel(levels) {
+            const counts = {};
+            levels.forEach(l => { counts[l.code] = (counts[l.code] || 0) + 1; });
+            let max = 0, dominant = LEVELS.NORMAL;
+            for (const [code, count] of Object.entries(counts)) {
+                if (count > max) {
+                    max = count;
+                    dominant = Object.values(LEVELS).find(l => l.code === code) || LEVELS.NORMAL;
+                }
             }
-
-            const n = days.length;
-            const stepX = chartW / (n - 1 || 1);
-
-            // Draw max temp line (orange)
-            ctx.strokeStyle = '#ed8936';
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            allMaxTemps.forEach((temp, i) => {
-                const x = padding.left + stepX * i;
-                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-
-            // Draw min temp line (blue)
-            ctx.strokeStyle = '#3182ce';
-            ctx.lineWidth = 2.5;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            allMinTemps.forEach((temp, i) => {
-                const x = padding.left + stepX * i;
-                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Points and labels
-            allMaxTemps.forEach((temp, i) => {
-                const x = padding.left + stepX * i;
-                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
-
-                // Max temp point
-                ctx.fillStyle = '#ed8936';
-                ctx.beginPath();
-                ctx.arc(x, y, 4, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Max temp label
-                ctx.fillStyle = '#ed8936';
-                ctx.font = 'bold 11px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(Math.round(temp) + '°', x, y - 10);
-            });
-
-            allMinTemps.forEach((temp, i) => {
-                const x = padding.left + stepX * i;
-                const y = padding.top + chartH * (1 - (temp - minTemp) / tempRange);
-
-                // Min temp point
-                ctx.fillStyle = '#3182ce';
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Min temp label
-                ctx.fillStyle = '#3182ce';
-                ctx.font = '11px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(Math.round(temp) + '°', x, y + 18);
-            });
-
-            // X axis labels - date and weekday
-            days.forEach((day, i) => {
-                const x = padding.left + stepX * i;
-                const date = day.date;
-                const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
-                const weekday = weekdays[date.getDay()];
-                const isHist = isHistorical(date);
-
-                ctx.fillStyle = isHist ? '#a0aec0' : '#4a5568';
-                ctx.font = 'bold 12px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(weekday, x, h - padding.bottom + 18);
-
-                ctx.fillStyle = isHist ? '#cbd5e0' : '#718096';
-                ctx.font = '10px sans-serif';
-                ctx.fillText(`${date.getMonth()+1}/${date.getDate()}`, x, h - padding.bottom + 32);
-
-                // Weather icon
-                const dominantCode = day.hours[Math.floor(day.hours.length/2)].code;
-                ctx.font = '16px sans-serif';
-                ctx.fillText(getWeatherIcon(dominantCode), x, h - padding.bottom + 48);
-            });
-
-            // Legend
-            ctx.fillStyle = '#ed8936';
-            ctx.beginPath();
-            ctx.arc(w - 70, 12, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#718096';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText('最高温', w - 62, 16);
-
-            ctx.strokeStyle = '#3182ce';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-            ctx.moveTo(w - 20, 12);
-            ctx.lineTo(w - 8, 12);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle = '#3182ce';
-            ctx.beginPath();
-            ctx.arc(w - 14, 12, 2, 0, Math.PI * 2);
-            ctx.fill();
+            return dominant;
         }
 
-        // Render weather
-        function renderWeather() {
+        // 加载所有城市数据
+        async function loadAllCities() {
             const content = document.getElementById('content');
-            const days = groupByDay(weatherData.hourly);
+            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>正在分析全国运营天气...</p></div>';
 
-            // Split into historical and forecast
-            const historical = days.filter(d => isHistorical(d.date));
-            const forecast = days.filter(d => !isHistorical(d.date));
+            try {
+                const promises = CITIES.map(async city => {
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    const days = groupByDay(data.hourly);
+                    allCityData[city.name] = { data, days };
+                    return { city, days };
+                });
+
+                await Promise.all(promises);
+                renderDashboard();
+            } catch (err) {
+                content.innerHTML = '<div class="error-msg">加载失败，请检查网络后重试<br>' + err.message + '</div>';
+            }
+        }
+
+        // 加载单个城市数据
+        async function loadCityData(city) {
+            if (allCityData[city.name]) {
+                renderCityDetail(city);
+                return;
+            }
+
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>正在加载 ' + city.name + ' 的运营数据...</p></div>';
+
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
+                const response = await fetch(url);
+                const data = await response.json();
+                const days = groupByDay(data.hourly);
+                allCityData[city.name] = { data, days };
+                renderCityDetail(city);
+            } catch (err) {
+                content.innerHTML = '<div class="error-msg">加载失败，请检查网络后重试<br>' + err.message + '</div>';
+            }
+        }
+
+        // 渲染全局仪表盘
+        function renderDashboard() {
+            currentView = 'dashboard';
+            const content = document.getElementById('content');
+            const today = new Date().toISOString().split('T')[0];
+
+            // 收集今日各城市数据
+            const citySummaries = CITIES.map(city => {
+                const cityInfo = allCityData[city.name];
+                if (!cityInfo) return null;
+                const todayData = cityInfo.days.find(d => d.date.toISOString().split('T')[0] === today);
+                if (!todayData) return null;
+
+                const level = getDominantLevel(todayData.levels);
+                const maxTemp = Math.max(...todayData.temps);
+                const minTemp = Math.min(...todayData.temps);
+                const maxRain = Math.max(...todayData.rainProbs);
+                const dominantCode = todayData.hours[Math.floor(todayData.hours.length / 2)].code;
+
+                return { city, level, maxTemp, minTemp, maxRain, dominantCode, todayData };
+            }).filter(Boolean);
+
+            // 找出预警城市
+            const alerts = citySummaries.filter(s =>
+                s.level.code === 'high-demand' || s.level.code === 'risk' || s.level.code === 'low'
+            );
 
             let html = '';
 
-            // 7-Day Trend Chart
-            html += `
-                <div class="trend-section">
-                    <div class="trend-title">📈 7日温度趋势</div>
-                    <div class="trend-canvas-container">
-                        <canvas class="trend-canvas" id="trendChart"></canvas>
-                    </div>
-                </div>
-            `;
-
-            // Historical section
-            if (historical.length > 0) {
-                html += `<div class="section-divider">⏮️ 历史天气</div>`;
-                historical.forEach((day, idx) => {
-                    html += renderDayCard(day, idx, true);
-                });
-            }
-
-            // Forecast section
-            if (forecast.length > 0) {
-                html += `<div class="section-divider">🔮 预报天气</div>`;
-                forecast.forEach((day, idx) => {
-                    html += renderDayCard(day, idx, false);
-                });
-            }
-
-            content.innerHTML = html;
-
-            // Draw charts after DOM update
-            setTimeout(() => {
-                const trendCanvas = document.getElementById('trendChart');
-                if (trendCanvas) {
-                    drawTrendChart(trendCanvas, days);
-                }
-
-                days.forEach((day, idx) => {
-                    const canvas = document.getElementById(`chart-${idx}`);
-                    if (canvas) {
-                        drawChart(canvas, day.temps, day.rainProbs);
-                    }
-                });
-            }, 50);
-        }
-
-        // Render a single day card
-        function renderDayCard(day, idx, isHist) {
-            const maxTemp = Math.max(...day.temps);
-            const minTemp = Math.min(...day.temps);
-            const avgHumidity = Math.round(day.hours.reduce((a, h) => a + h.humidity, 0) / day.hours.length);
-            const maxWind = Math.max(...day.hours.map(h => h.wind));
-            const maxRain = Math.max(...day.rainProbs);
-            const dominantCode = day.hours[Math.floor(day.hours.length/2)].code;
-            const isToday = new Date().toDateString() === day.date.toDateString();
-
-            return `
-                <div class="day-card ${isHist ? 'historical' : ''} ${isToday ? 'expanded' : ''}" data-day="${idx}">
-                    <div class="day-header" onclick="toggleDay(${idx})">
-                        <div class="day-info">
-                            <div class="day-icon">${getWeatherIcon(dominantCode)}</div>
-                            <div class="day-text">
-                                <div class="day-label">${getDayLabel(day.date)} ${day.date.getMonth()+1}/${day.date.getDate()}</div>
-                                <div class="day-stats">
-                                    <span class="summary-item">💧 ${avgHumidity}%</span>
-                                    <span class="summary-item">💨 ${maxWind}km/h</span>
-                                    <span class="summary-item">🌧️ ${maxRain}%</span>
+            // 预警卡片
+            if (alerts.length > 0) {
+                html += '<div class="alert-section">';
+                alerts.forEach(alert => {
+                    const advice = getAdvice(alert.level, alert.maxRain, 0, alert.maxTemp);
+                    const alertClass = alert.level.code === 'risk' ? '' :
+                                      alert.level.code === 'high-demand' ? 'opportunity' : 'warning';
+                    html += `
+                        <div class="alert-card ${alertClass}">
+                            <div class="alert-icon">${alert.level.icon}</div>
+                            <div class="alert-content">
+                                <div class="alert-title">${alert.city.name} · ${alert.level.label}</div>
+                                <div class="alert-desc">${getWeatherDesc(alert.dominantCode)}，降水概率 ${alert.maxRain}%</div>
+                                <div class="alert-actions">
+                                    ${advice.slice(0, 2).map(a => `<span class="action-tag ${alert.level.code === 'high-demand' ? '' : 'suggest'}">${a}</span>`).join('')}
                                 </div>
                             </div>
                         </div>
-                        <div class="day-temp">
-                            <span class="temp-high">${Math.round(maxTemp)}°</span>
-                            <span class="temp-low">${Math.round(minTemp)}°</span>
-                            <span class="expand-icon">▼</span>
-                        </div>
-                    </div>
-                    <div class="hourly-detail">
-                        <div class="chart-container">
-                            <canvas class="chart-canvas" id="chart-${idx}"></canvas>
-                        </div>
-                        <div class="hourly-list">
-                            ${day.hours.map(h => `
-                                <div class="hour-row">
-                                    <div class="hour-time">${h.time.toString().padStart(2,'0')}:00</div>
-                                    <div class="hour-icon">${getWeatherIcon(h.code)}</div>
-                                    <div class="hour-desc">${getWeatherDesc(h.code)}</div>
-                                    <div class="hour-temp">${Math.round(h.temp)}°</div>
-                                    <div class="hour-humidity">${h.humidity}%</div>
-                                    <div class="hour-rain">${h.rainProb}%</div>
-                                </div>
-                            `).join('')}
-                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            // 城市仪表盘
+            html += `
+                <div class="dashboard-section">
+                    <div class="section-title">🏙️ 城市运营概览（${CITIES.length}城）</div>
+                    <div class="city-grid">
+                        ${citySummaries.map(s => `
+                            <div class="city-item level-${s.level.code}" onclick="showCityDetailByName('${s.city.name}')">
+                                <div class="city-name">${s.city.name}</div>
+                                <div class="city-weather-icon">${getWeatherIcon(s.dominantCode)}</div>
+                                <div class="city-temp">${Math.round(s.minTemp)}° - ${Math.round(s.maxTemp)}°</div>
+                                <div class="city-level">${s.level.icon} ${s.level.label}</div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             `;
+
+            content.innerHTML = html;
         }
 
-        function toggleDay(idx) {
-            const card = document.querySelector(`[data-day="${idx}"]`);
-            card.classList.toggle('expanded');
-            if (card.classList.contains('expanded')) {
-                setTimeout(() => {
-                    const canvas = document.getElementById(`chart-${idx}`);
-                    if (canvas) {
-                        const day = groupByDay(weatherData.hourly)[idx];
-                        drawChart(canvas, day.temps, day.rainProbs);
-                    }
-                }, 300);
-            }
+        // 显示城市详情
+        function showCityDetailByName(cityName) {
+            const city = CITIES.find(c => c.name === cityName);
+            if (city) showCityDetail(city);
+        }
+
+        function showCityDetail(city) {
+            currentView = 'detail';
+            currentCity = city;
+            document.querySelectorAll('.city-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === city.name);
+            });
+            loadCityData(city);
+        }
+
+        // 渲染城市详情
+        function renderCityDetail(city) {
+            const content = document.getElementById('content');
+            const cityInfo = allCityData[city.name];
+            if (!cityInfo) return;
+
+            const days = cityInfo.days;
+            const today = days.find(d => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                return d.date.toISOString().split('T')[0] === todayStr;
+            }) || days[days.length - 1];
+
+            const level = getDominantLevel(today.levels);
+            const advice = getAdvice(level, Math.max(...today.rainProbs), 0, Math.max(...today.temps));
+
+            // 找出未来24小时内的异常时段
+            const futureHours = today.hours.filter(h => h.time >= new Date().getHours());
+            const alertHours = futureHours.filter(h =>
+                h.level.code === 'high-demand' || h.level.code === 'risk'
+            );
+
+            let html = '';
+
+            // 返回按钮 + 城市名
+            html += `
+                <div class="detail-section">
+                    <div class="detail-header">
+                        <div>
+                            <span style="cursor:pointer;color:var(--text-muted);font-size:14px;" onclick="renderDashboard()">← 返回概览</span>
+                            <div class="detail-city" style="margin-top:8px;">${city.name}</div>
+                        </div>
+                        <div class="detail-level" style="background:${level.color}15;color:${level.color};">
+                            ${level.icon} ${level.label}
+                        </div>
+                    </div>
+
+                    <div class="detail-summary">
+                        <div class="detail-summary-title">📋 今日运营判断</div>
+                        <div class="detail-summary-text">
+                            今日${city.name}${getDayLabel(today.date)}天气以${getWeatherDesc(today.hours[0].code)}为主，
+                            最高气温${Math.round(Math.max(...today.temps))}°，最低气温${Math.round(Math.min(...today.temps))}°，
+                            最大降水概率${Math.max(...today.rainProbs)}%。
+                            ${alertHours.length > 0 ? `未来24小时内有${alertHours.length}个时段需要关注。` : '全天运营条件相对平稳。'}
+                        </div>
+                    </div>
+
+                    <div class="detail-advice">
+                        ${advice.map(a => `
+                            <div class="advice-item">
+                                <span class="advice-icon">${a.split(' ')[0]}</span>
+                                <span class="advice-text">${a.substring(2)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            // Tab 切换
+            html += `
+                <div class="tab-bar">
+                    <button class="tab-btn active" onclick="switchTab('today')" id="tab-today">今日逐时</button>
+                    <button class="tab-btn" onclick="switchTab('future')" id="tab-future">未来3天</button>
+                    <button class="tab-btn" onclick="switchTab('history')" id="tab-history">过去5天</button>
+                </div>
+            `;
+
+            // 今日逐时
+            html += '<div id="view-today">';
+            html += '<div class="detail-section">';
+            html += '<div class="hourly-title">⏰ 逐小时运营建议</div>';
+
+            today.hours.forEach(h => {
+                const levelClass = `level-tag-${h.level.code}`;
+                html += `
+                    <div class="hour-row">
+                        <div class="hour-time">${h.time.toString().padStart(2,'0')}:00</div>
+                        <div class="hour-icon">${getWeatherIcon(h.code)}</div>
+                        <div class="hour-desc">${getWeatherDesc(h.code)}</div>
+                        <div class="hour-temp">${Math.round(h.temp)}°</div>
+                        <div class="hour-level ${levelClass}">${h.level.label}</div>
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+
+            // 未来3天
+            html += '<div id="view-future" style="display:none;">';
+            const futureDays = days.filter(d => d.date >= new Date(new Date().setHours(0,0,0,0)));
+            futureDays.forEach(day => {
+                const dayLevel = getDominantLevel(day.levels);
+                html += `
+                    <div class="detail-section">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <span style="font-weight:600;">${getDayLabel(day.date)} ${day.date.getMonth()+1}/${day.date.getDate()}</span>
+                            <span style="padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;background:${dayLevel.color}15;color:${dayLevel.color};">
+                                ${dayLevel.icon} ${dayLevel.label}
+                            </span>
+                        </div>
+                        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
+                            ${getWeatherDesc(day.hours[Math.floor(day.hours.length/2)].code)}，
+                            气温 ${Math.round(Math.min(...day.temps))}°-${Math.round(Math.max(...day.temps))}°，
+                            最大降水 ${Math.max(...day.rainProbs)}%
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            // 过去5天
+            html += '<div id="view-history" style="display:none;">';
+            html += '<div class="detail-section">';
+            html += '<div class="section-title">📅 过去5天复盘</div>';
+            html += '<div class="history-list">';
+            const historyDays = days.filter(d => d.date < new Date(new Date().setHours(0,0,0,0)));
+            historyDays.forEach(day => {
+                const dayLevel = getDominantLevel(day.levels);
+                const dominantCode = day.hours[Math.floor(day.hours.length/2)].code;
+                html += `
+                    <div class="history-item">
+                        <div class="history-date">${getDayLabel(day.date)}</div>
+                        <div class="history-icon">${getWeatherIcon(dominantCode)}</div>
+                        <div class="history-info">
+                            <div class="history-weather">${getWeatherDesc(dominantCode)} ${Math.round(Math.min(...day.temps))}°-${Math.round(Math.max(...day.temps))}°</div>
+                        </div>
+                        <div class="history-level" style="background:${dayLevel.color}15;color:${dayLevel.color};">
+                            ${dayLevel.icon} ${dayLevel.label}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div></div></div>';
+
+            content.innerHTML = html;
+        }
+
+        // Tab 切换
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+
+            document.getElementById('view-today').style.display = tab === 'today' ? 'block' : 'none';
+            document.getElementById('view-future').style.display = tab === 'future' ? 'block' : 'none';
+            document.getElementById('view-history').style.display = tab === 'history' ? 'block' : 'none';
+        }
+
+        // 设置日期
+        function setHeaderDate() {
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
+            const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+            document.getElementById('headerDate').textContent = dateStr + ' ' + weekdays[now.getDay()];
         }
 
         // Init
+        setHeaderDate();
         initCitySelector();
-        loadWeather();
+        loadAllCities();
     </script>
 </body>
 </html>
