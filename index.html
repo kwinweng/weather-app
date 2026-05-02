@@ -1,1065 +1,1099 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>运营天气 - 网约车决策辅助</title>
-    <style>
-        :root {
-            --brand-primary: #4c6ef5;
-            --brand-secondary: #748ffc;
-            --bg-primary: #f8fafc;
-            --bg-card: #ffffff;
-            --bg-hover: #edf2ff;
-            --text-primary: #1a1a2e;
-            --text-secondary: #4a5568;
-            --text-muted: #8a94a6;
-            --accent-blue: #4c6ef5;
-            --accent-sky: #74c0fc;
-            --accent-orange: #ff922b;
-            --accent-red: #ff6b6b;
-            --accent-green: #51cf66;
-            --accent-yellow: #fcc419;
-            --border-light: #e9ecef;
-            --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-            --shadow-hover: 0 4px 12px rgba(76, 110, 245, 0.12);
-            --radius: 14px;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html { scroll-behavior: smooth; }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.5;
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, #4c6ef5 0%, #6741d9 100%);
-            color: white;
-            padding: 16px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 4px 16px rgba(76, 110, 245, 0.25);
-        }
-
-        .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .header-date {
-            font-size: 13px;
-            opacity: 0.9;
-        }
-
-        .city-selector {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 4px;
-            scrollbar-width: none;
-            -webkit-overflow-scrolling: touch;
-        }
-        .city-selector::-webkit-scrollbar { display: none; }
-
-        .city-btn {
-            flex-shrink: 0;
-            padding: 6px 14px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.3);
-            background: rgba(255,255,255,0.15);
-            color: white;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            font-family: inherit;
-        }
-        .city-btn.active {
-            background: white;
-            color: var(--brand-primary);
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-        .city-btn:not(.active):hover { background: rgba(255,255,255,0.25); }
-        .city-btn:active { transform: scale(0.95); }
-
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-muted);
-        }
-        .loading-spinner {
-            width: 36px; height: 36px;
-            border: 3px solid var(--border-light);
-            border-top-color: var(--accent-blue);
-            border-radius: 50%;
-            animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-            margin: 0 auto 16px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Content */
-        .content {
-            padding: 12px;
-            max-width: 800px;
-            margin: 0 auto;
-            animation: fadeIn 0.4s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Alert Cards */
-        .alert-section {
-            margin-bottom: 12px;
-        }
-
-        .alert-card {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            padding: 14px 16px;
-            margin-bottom: 10px;
-            box-shadow: var(--shadow-card);
-            border-left: 4px solid var(--accent-red);
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .alert-card.warning {
-            border-left-color: var(--accent-yellow);
-        }
-
-        .alert-card.opportunity {
-            border-left-color: var(--accent-orange);
-        }
-
-        .alert-icon {
-            font-size: 24px;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .alert-content {
-            flex: 1;
-        }
-
-        .alert-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }
-
-        .alert-desc {
-            font-size: 13px;
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        .alert-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-            flex-wrap: wrap;
-        }
-
-        .action-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            background: #fff5f5;
-            color: var(--accent-red);
-        }
-
-        .action-tag.suggest {
-            background: #fff9db;
-            color: #f59f00;
-        }
-
-        /* Dashboard */
-        .dashboard-section {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: var(--shadow-card);
-        }
-
-        .section-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .city-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        @media (min-width: 480px) {
-            .city-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-
-        @media (min-width: 640px) {
-            .city-grid { grid-template-columns: repeat(4, 1fr); }
-        }
-
-        .city-item {
-            background: var(--bg-primary);
-            border-radius: 12px;
-            padding: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 2px solid transparent;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .city-item:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .city-item.active-city {
-            border-color: var(--brand-primary);
-            background: var(--bg-hover);
-        }
-
-        .city-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            border-radius: 12px 12px 0 0;
-        }
-
-        .city-item.level-high-demand::before { background: var(--accent-red); }
-        .city-item.level-opportunity::before { background: var(--accent-orange); }
-        .city-item.level-risk::before { background: var(--accent-yellow); }
-        .city-item.level-normal::before { background: var(--accent-green); }
-        .city-item.level-low::before { background: var(--accent-sky); }
-
-        .city-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }
-
-        .city-weather-icon {
-            font-size: 28px;
-            margin: 4px 0;
-        }
-
-        .city-temp {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .city-level {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            margin-top: 6px;
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .level-high-demand .city-level { background: #fff5f5; color: var(--accent-red); }
-        .level-opportunity .city-level { background: #fff9db; color: #f59f00; }
-        .level-risk .city-level { background: #fff9db; color: #f59f00; }
-        .level-normal .city-level { background: #e6fcf5; color: var(--accent-green); }
-        .level-low .city-level { background: #e7f5ff; color: var(--accent-blue); }
-
-        /* Detail View */
-        .detail-section {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: var(--shadow-card);
-        }
-
-        .detail-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .detail-city {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .detail-level {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .detail-summary {
-            background: var(--bg-primary);
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 16px;
-        }
-
-        .detail-summary-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-        }
-
-        .detail-summary-text {
-            font-size: 14px;
-            color: var(--text-primary);
-            line-height: 1.7;
-        }
-
-        .detail-advice {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .advice-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 10px 12px;
-            background: var(--bg-primary);
-            border-radius: 10px;
-            font-size: 13px;
-        }
-
-        .advice-icon {
-            font-size: 18px;
-            flex-shrink: 0;
-        }
-
-        .advice-text {
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        /* Hourly List */
-        .hourly-section {
-            margin-top: 16px;
-        }
-
-        .hourly-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 10px;
-        }
-
-        .hour-row {
-            display: grid;
-            grid-template-columns: 50px 30px 1fr 50px 60px;
-            gap: 8px;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border-light);
-            font-size: 13px;
-        }
-
-        .hour-row:last-child { border-bottom: none; }
-
-        .hour-time {
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        .hour-icon {
-            font-size: 18px;
-            text-align: center;
-        }
-
-        .hour-desc {
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-
-        .hour-temp {
-            font-weight: 600;
-            color: var(--text-primary);
-            text-align: right;
-        }
-
-        .hour-level {
-            text-align: right;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 8px;
-        }
-
-        .level-tag-high { background: #fff5f5; color: var(--accent-red); }
-        .level-tag-opportunity { background: #fff9db; color: #f59f00; }
-        .level-tag-risk { background: #fff9db; color: #f59f00; }
-        .level-tag-normal { background: #e6fcf5; color: var(--accent-green); }
-        .level-tag-low { background: #e7f5ff; color: var(--accent-blue); }
-
-        /* Chart */
-        .chart-container {
-            height: 180px;
-            position: relative;
-            margin: 12px 0;
-        }
-
-        .chart-canvas {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Tab Switch */
-        .tab-bar {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            background: var(--bg-primary);
-            border-radius: 10px;
-            padding: 4px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 8px 12px;
-            border: none;
-            background: transparent;
-            color: var(--text-muted);
-            font-size: 13px;
-            font-weight: 500;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-        }
-
-        .tab-btn.active {
-            background: white;
-            color: var(--brand-primary);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        /* Historical Cards */
-        .history-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .history-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            background: var(--bg-primary);
-            border-radius: 10px;
-            opacity: 0.85;
-        }
-
-        .history-date {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-secondary);
-            min-width: 80px;
-        }
-
-        .history-icon {
-            font-size: 24px;
-        }
-
-        .history-info {
-            flex: 1;
-        }
-
-        .history-weather {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .history-level {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        /* Error */
-        .error-msg {
-            text-align: center;
-            padding: 32px 24px;
-            color: var(--accent-red);
-            background: #fff5f5;
-            border: 1px solid #feb2b2;
-            border-radius: var(--radius);
-            margin: 16px 0;
-        }
-        .error-msg::before {
-            content: '⚠️';
-            font-size: 32px;
-            display: block;
-            margin-bottom: 12px;
-        }
-
-        /* Responsive */
-        @media (max-width: 360px) {
-            .city-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-            .city-item { padding: 10px; }
-            .hour-row { grid-template-columns: 45px 28px 1fr 45px 55px; font-size: 12px; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>异常天气事件档案</title>
+  <style>
+    :root {
+      --bg: #dff3ff;
+      --bg-deep: #b9e5ff;
+      --surface: rgba(255, 255, 255, 0.74);
+      --surface-strong: rgba(255, 255, 255, 0.92);
+      --text: #10314a;
+      --muted: #5f7891;
+      --soft: #d9edf9;
+      --line: rgba(86, 141, 179, 0.2);
+      --blue: #147ee8;
+      --cyan: #24c6dc;
+      --yellow: #f5b942;
+      --orange: #ff8a3d;
+      --red: #ef4d5a;
+      --green: #24b47e;
+      --shadow: 0 20px 48px rgba(34, 104, 156, 0.18);
+      --radius-lg: 28px;
+      --radius: 20px;
+      --radius-sm: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% -4%, rgba(255, 255, 255, 0.92) 0 18%, transparent 36%),
+        radial-gradient(circle at 92% 8%, rgba(83, 200, 255, 0.34) 0 16%, transparent 34%),
+        linear-gradient(180deg, #effbff 0%, var(--bg) 44%, #f7fbff 100%);
+    }
+
+    button {
+      border: 0;
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .app-shell {
+      width: min(100%, 1160px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 18px 16px 28px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 2px 24px;
+      color: rgba(16, 49, 74, 0.88);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .status-dots {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .signal,
+    .battery {
+      height: 11px;
+      border-radius: 999px;
+      background: rgba(16, 49, 74, 0.72);
+    }
+
+    .signal { width: 24px; }
+    .battery { width: 31px; position: relative; }
+    .battery::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 3px;
+      width: 3px;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(16, 49, 74, 0.72);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .title-block h1 {
+      font-size: clamp(28px, 7vw, 42px);
+      line-height: 1.1;
+      letter-spacing: 0;
+      font-weight: 850;
+    }
+
+    .title-block p {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .city-select {
+      min-width: 106px;
+      padding: 10px 12px;
+      border: 1px solid rgba(20, 126, 232, 0.18);
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 10px 26px rgba(59, 139, 200, 0.12);
+      outline: none;
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .nav-tabs,
+    .archive-tabs {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .nav-tabs::-webkit-scrollbar,
+    .archive-tabs::-webkit-scrollbar { display: none; }
+
+    .nav-tab {
+      position: relative;
+      flex: 0 0 auto;
+      padding: 4px 0 13px;
+      color: rgba(16, 49, 74, 0.72);
+      font-size: 17px;
+      font-weight: 760;
+    }
+
+    .nav-tab.active {
+      color: var(--text);
+    }
+
+    .nav-tab.active::after {
+      content: "";
+      position: absolute;
+      left: 2px;
+      right: 44%;
+      bottom: 4px;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+
+    .layout {
+      display: grid;
+      gap: 18px;
+      margin-top: 6px;
+    }
+
+    .weather-card {
+      position: relative;
+      min-height: 392px;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      color: white;
+      background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.2), transparent 38%),
+        linear-gradient(140deg, #78caff 0%, #4daaf6 46%, #8cc9ff 100%);
+      box-shadow: var(--shadow);
+    }
+
+    .weather-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(255,255,255,0.64) 0 18%, transparent 30%),
+        radial-gradient(circle at 52% -4%, rgba(255,211,142,0.72) 0 15%, transparent 30%),
+        radial-gradient(circle at 88% 11%, rgba(255,255,255,0.6) 0 17%, transparent 32%);
+      opacity: 0.86;
+    }
+
+    .weather-card::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 42%;
+      background:
+        linear-gradient(160deg, transparent 10%, rgba(255, 255, 255, 0.16) 11% 12%, transparent 13%),
+        linear-gradient(205deg, transparent 18%, rgba(24, 100, 176, 0.16) 19% 20%, transparent 21%),
+        linear-gradient(180deg, rgba(72, 145, 214, 0.16), rgba(26, 107, 191, 0.3));
+      clip-path: polygon(0 22%, 32% 26%, 66% 18%, 100% 23%, 100% 100%, 0 100%);
+    }
+
+    .weather-card.skin-sunny {
+      background: linear-gradient(140deg, #77c8ff 0%, #65b6ff 46%, #ffd77a 100%);
+    }
+
+    .weather-card.skin-cloudy {
+      background: linear-gradient(140deg, #91d2ff 0%, #6eb8f6 52%, #b7dfff 100%);
+    }
+
+    .weather-card.skin-rain {
+      background: linear-gradient(140deg, #7ed0ff 0%, #4faaf3 48%, #8ecbff 100%);
+    }
+
+    .weather-card.skin-storm {
+      background: linear-gradient(140deg, #6db4ff 0%, #6976e7 52%, #b18be8 100%);
+    }
+
+    .weather-card.skin-snow {
+      background: linear-gradient(140deg, #eefbff 0%, #9dd9ff 50%, #6fbaff 100%);
+    }
+
+    .weather-card.skin-fog {
+      background: linear-gradient(140deg, #c7e9fa 0%, #9fcae4 52%, #dcecf4 100%);
+    }
+
+    .weather-art {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .cloud {
+      position: absolute;
+      width: 120px;
+      height: 54px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.56);
+      filter: blur(0.2px);
+    }
+
+    .cloud::before,
+    .cloud::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: inherit;
+    }
+
+    .cloud::before {
+      width: 70px;
+      height: 70px;
+      left: 14px;
+      top: -30px;
+    }
+
+    .cloud::after {
+      width: 76px;
+      height: 76px;
+      right: 8px;
+      top: -34px;
+    }
+
+    .cloud.c1 { left: 18px; top: 42px; opacity: 0.7; }
+    .cloud.c2 { right: 24px; top: 52px; transform: scale(1.18); opacity: 0.58; }
+
+    .rain-lines,
+    .snow-dots,
+    .wind-lines {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+    }
+
+    .skin-rain .rain-lines,
+    .skin-storm .rain-lines {
+      opacity: 0.8;
+      background-image: repeating-linear-gradient(105deg, rgba(255,255,255,0.0) 0 16px, rgba(255,255,255,0.48) 17px 19px, rgba(255,255,255,0.0) 20px 34px);
+      mask-image: linear-gradient(180deg, transparent 14%, #000 32%, #000 92%);
+    }
+
+    .skin-snow .snow-dots {
+      opacity: 0.9;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,0.86) 0 2px, transparent 3px),
+        radial-gradient(circle, rgba(255,255,255,0.62) 0 1.5px, transparent 2px);
+      background-size: 54px 54px, 38px 38px;
+      background-position: 8px 20px, 22px 8px;
+    }
+
+    .skin-fog .wind-lines,
+    .skin-cloudy .wind-lines {
+      opacity: 0.36;
+      background-image: repeating-linear-gradient(0deg, transparent 0 42px, rgba(255,255,255,0.58) 43px 45px, transparent 46px 68px);
+      mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 78%, transparent 100%);
+    }
+
+    .weather-content {
+      position: relative;
+      z-index: 1;
+      padding: 18px;
+      min-height: 392px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .weather-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: rgba(255,255,255,0.84);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .weather-meta span:last-child {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(10px);
+    }
+
+    .temp-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+      margin-top: 52px;
+    }
+
+    .temp-now {
+      font-size: clamp(76px, 24vw, 118px);
+      line-height: 0.82;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .condition {
+      padding-bottom: 12px;
+      font-size: 21px;
+      font-weight: 800;
+    }
+
+    .weather-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+      color: rgba(255,255,255,0.9);
+      font-size: 15px;
+      font-weight: 750;
+    }
+
+    .alert-strip {
+      margin-top: 24px;
+      padding: 13px 14px;
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 16px;
+      color: rgba(255,255,255,0.94);
+      background: rgba(255,255,255,0.16);
+      backdrop-filter: blur(14px);
+      font-size: 14px;
+      font-weight: 780;
+    }
+
+    .hourly-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: auto;
+      padding: 14px 10px 10px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+      backdrop-filter: blur(14px);
+    }
+
+    .hour-chip {
+      text-align: center;
+      color: rgba(255,255,255,0.88);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .hour-chip .icon {
+      display: block;
+      margin: 9px 0 8px;
+      font-size: 23px;
+    }
+
+    .hour-chip strong {
+      display: block;
+      font-size: 15px;
+      color: white;
+    }
+
+    .panel {
+      border: 1px solid rgba(255,255,255,0.76);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .archive-panel {
+      padding: 18px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .section-head h2 {
+      font-size: 22px;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .count-pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: #0f65bb;
+      background: rgba(20, 126, 232, 0.1);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .archive-tabs {
+      gap: 10px;
+      margin-bottom: 15px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.58);
+    }
+
+    .archive-tab {
+      flex: 1 0 auto;
+      min-width: 82px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .archive-tab.active {
+      color: white;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      box-shadow: 0 10px 24px rgba(20, 126, 232, 0.22);
+    }
+
+    .event-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .event-card {
+      display: grid;
+      gap: 10px;
+      padding: 15px;
+      border: 1px solid rgba(20, 126, 232, 0.08);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.72);
+      text-align: left;
+      box-shadow: 0 10px 26px rgba(54, 121, 171, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .event-card.active,
+    .event-card:active {
+      transform: translateY(-1px);
+      border-color: rgba(20, 126, 232, 0.36);
+      box-shadow: 0 16px 32px rgba(54, 121, 171, 0.16);
+    }
+
+    .event-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .event-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-size: 17px;
+      font-weight: 850;
+    }
+
+    .event-title span:last-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .risk-badge {
+      flex: 0 0 auto;
+      padding: 6px 9px;
+      border-radius: 999px;
+      color: white;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .risk-mild { background: #3b9ef5; }
+    .risk-moderate { background: var(--yellow); color: #573900; }
+    .risk-high { background: var(--orange); }
+    .risk-extreme { background: var(--red); }
+    .risk-normal { background: var(--green); }
+
+    .event-time,
+    .event-metric {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .event-metric {
+      color: #1b638e;
+    }
+
+    .event-bars {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 3px;
+      align-items: end;
+      height: 28px;
+      margin-top: 2px;
+    }
+
+    .event-bars i {
+      display: block;
+      min-height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #49c7ff, #147ee8);
+      opacity: 0.44;
+    }
+
+    .empty-state {
+      padding: 24px 14px;
+      border-radius: var(--radius);
+      color: var(--muted);
+      background: rgba(255,255,255,0.54);
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .detail-panel {
+      padding: 18px;
+    }
+
+    .detail-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .detail-title h2 {
+      font-size: 23px;
+      line-height: 1.18;
+      font-weight: 880;
+    }
+
+    .detail-title p {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      min-height: 76px;
+      padding: 12px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.62);
+    }
+
+    .metric label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 7px;
+      font-size: 17px;
+      line-height: 1.15;
+      font-weight: 880;
+    }
+
+    .reason-box {
+      padding: 13px 14px;
+      border-radius: var(--radius-sm);
+      color: #184765;
+      background: rgba(20, 126, 232, 0.08);
+      font-size: 14px;
+      font-weight: 720;
+      line-height: 1.55;
+    }
+
+    .evidence-table {
+      margin-top: 16px;
+      overflow: hidden;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.62);
+    }
+
+    .evidence-row {
+      display: grid;
+      grid-template-columns: 58px 1fr 58px 64px;
+      gap: 8px;
+      padding: 11px 12px;
+      border-bottom: 1px solid rgba(16,49,74,0.06);
+      color: #1b4b69;
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .evidence-row:first-child {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      background: rgba(255,255,255,0.38);
+    }
+
+    .evidence-row:last-child { border-bottom: 0; }
+
+    .error-msg,
+    .loading {
+      padding: 48px 20px;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 760;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      margin: 0 auto 14px;
+      border: 3px solid rgba(20, 126, 232, 0.16);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (min-width: 820px) {
+      .app-shell {
+        padding: 28px 24px 36px;
+      }
+
+      .status-bar {
+        display: none;
+      }
+
+      .layout {
+        grid-template-columns: minmax(320px, 0.88fr) minmax(420px, 1.12fr);
+        align-items: start;
+      }
+
+      .weather-card {
+        position: sticky;
+        top: 24px;
+        min-height: 468px;
+      }
+
+      .weather-content {
+        min-height: 468px;
+        padding: 24px;
+      }
+
+      .archive-panel {
+        min-height: 468px;
+      }
+
+      .detail-panel {
+        grid-column: 1 / -1;
+      }
+
+      .evidence-row {
+        grid-template-columns: 80px 1fr 90px 90px;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .app-shell { padding-inline: 12px; }
+      .nav-tabs { gap: 19px; }
+      .weather-content { padding: 16px; }
+      .metric-grid { grid-template-columns: 1fr; }
+      .evidence-row { grid-template-columns: 52px 1fr 50px 56px; font-size: 12px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-top">
-            <h1>🚗 运营天气</h1>
-            <span class="header-date" id="headerDate"></span>
-        </div>
-        <div class="city-selector" id="citySelector"></div>
+  <main class="app-shell">
+    <div class="status-bar" aria-hidden="true">
+      <span>11:44</span>
+      <span class="status-dots"><i class="signal"></i><i class="battery"></i></span>
     </div>
 
-    <div class="content" id="content">
-        <div class="loading">
-            <div class="loading-spinner"></div>
-            <p>正在加载运营天气数据...</p>
-        </div>
+    <header class="topbar">
+      <div class="title-block">
+        <h1 id="pageTitle">西安天气档案</h1>
+        <p id="pageSubtitle">异常天气事件自动归档</p>
+      </div>
+      <select class="city-select" id="citySelect" aria-label="选择城市"></select>
+    </header>
+
+    <nav class="nav-tabs" id="topTabs" aria-label="主导航">
+      <button class="nav-tab active" data-top="all">全部</button>
+      <button class="nav-tab" data-top="today">今日</button>
+      <button class="nav-tab" data-top="forecast">预测</button>
+      <button class="nav-tab" data-top="history">历史</button>
+    </nav>
+
+    <div id="appContent">
+      <div class="loading"><div class="spinner"></div>正在加载天气档案...</div>
     </div>
+  </main>
 
-    <script>
-        // 城市数据
-        const CITIES = [
-            { name: '北京', lat: 39.9042, lon: 116.4074 },
-            { name: '上海', lat: 31.2304, lon: 121.4737 },
-            { name: '广州', lat: 23.1291, lon: 113.2644 },
-            { name: '深圳', lat: 22.5431, lon: 114.0579 },
-            { name: '杭州', lat: 30.2741, lon: 120.1551 },
-            { name: '成都', lat: 30.5728, lon: 104.0668 },
-            { name: '武汉', lat: 30.5928, lon: 114.3055 },
-            { name: '西安', lat: 34.3416, lon: 108.9398 },
-            { name: '重庆', lat: 29.5630, lon: 106.5516 },
-            { name: '南京', lat: 32.0603, lon: 118.7969 },
-            { name: '天津', lat: 39.0842, lon: 117.2009 },
-            { name: '苏州', lat: 31.2989, lon: 120.5853 }
-        ];
+  <script src="event-rules.js"></script>
+  <script>
+    const {
+      RISK_META,
+      classifyHourRisk,
+      detectWeatherEvents,
+      getLocalDateKey,
+      getWeatherDesc,
+      getWeatherIcon,
+      getWeatherSkin,
+    } = window.WeatherEventRules;
 
-        let currentCity = CITIES[0];
-        let weatherData = null;
-        let allCityData = {};
-        let currentView = 'dashboard'; // dashboard | detail
+    const CITIES = [
+      { name: '北京', lat: 39.9042, lon: 116.4074 },
+      { name: '上海', lat: 31.2304, lon: 121.4737 },
+      { name: '广州', lat: 23.1291, lon: 113.2644 },
+      { name: '深圳', lat: 22.5431, lon: 114.0579 },
+      { name: '杭州', lat: 30.2741, lon: 120.1551 },
+      { name: '成都', lat: 30.5728, lon: 104.0668 },
+      { name: '武汉', lat: 30.5928, lon: 114.3055 },
+      { name: '西安', lat: 34.3416, lon: 108.9398 },
+      { name: '重庆', lat: 29.5630, lon: 106.5516 },
+      { name: '南京', lat: 32.0603, lon: 118.7969 },
+      { name: '天津', lat: 39.0842, lon: 117.2009 },
+      { name: '苏州', lat: 31.2989, lon: 120.5853 },
+    ];
 
-        // 业务影响等级定义
-        const LEVELS = {
-            HIGH_DEMAND: { code: 'high-demand', label: '高需求机会', color: '#ff6b6b', icon: '🔴' },
-            OPPORTUNITY: { code: 'opportunity', label: '中等机会', color: '#ff922b', icon: '🟠' },
-            RISK: { code: 'risk', label: '供给风险', color: '#fcc419', icon: '🟡' },
-            NORMAL: { code: 'normal', label: '正常', color: '#51cf66', icon: '🟢' },
-            LOW: { code: 'low', label: '低需求', color: '#4c6ef5', icon: '🔵' }
-        };
+    const state = {
+      city: CITIES.find((city) => city.name === '西安') || CITIES[0],
+      hours: [],
+      events: [],
+      activeTop: 'all',
+      activeArchive: 'today',
+      selectedEventId: null,
+      updatedAt: '',
+    };
 
-        // WMO Weather codes
-        function getWeatherIcon(code) {
-            const icons = {
-                0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
-                45: '🌫️', 48: '🌫️',
-                51: '🌦️', 53: '🌦️', 55: '🌧️',
-                61: '🌧️', 63: '🌧️', 65: '🌧️',
-                71: '🌨️', 73: '🌨️', 75: '🌨️',
-                80: '🌦️', 81: '🌧️', 82: '🌧️',
-                95: '⛈️', 96: '⛈️', 99: '⛈️'
-            };
-            return icons[code] || '☁️';
-        }
+    const content = document.getElementById('appContent');
+    const citySelect = document.getElementById('citySelect');
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    const topTabs = document.getElementById('topTabs');
 
-        function getWeatherDesc(code) {
-            const desc = {
-                0: '晴朗', 1: '大部晴朗', 2: '多云', 3: '阴天',
-                45: '雾', 48: '雾凇',
-                51: '毛毛雨', 53: '小雨', 55: '中雨',
-                61: '小雨', 63: '中雨', 65: '大雨',
-                71: '小雪', 73: '中雪', 75: '大雪',
-                80: '阵雨', 81: '强阵雨', 82: '暴雨',
-                95: '雷雨', 96: '雷暴', 99: '强雷暴'
-            };
-            return desc[code] || '多云';
-        }
+    function init() {
+      citySelect.innerHTML = CITIES.map((city) => (
+        `<option value="${city.name}" ${city.name === state.city.name ? 'selected' : ''}>${city.name}</option>`
+      )).join('');
 
-        // 计算业务影响等级
-        function calculateLevel(temp, rainProb, windSpeed, weatherCode) {
-            // 极端天气优先判断
-            if (weatherCode >= 95) return LEVELS.RISK; // 雷暴
-            if (weatherCode >= 82) return LEVELS.LOW; // 暴雨
-            if (weatherCode >= 71 && weatherCode <= 75) return LEVELS.RISK; // 雪
-            if (windSpeed > 40) return LEVELS.RISK; // 大风
-            if (temp > 38 || temp < -10) return LEVELS.RISK; // 极端温度
+      citySelect.addEventListener('change', () => {
+        state.city = CITIES.find((city) => city.name === citySelect.value) || CITIES[0];
+        state.selectedEventId = null;
+        loadWeather();
+      });
 
-            // 中大雨
-            if (rainProb >= 70 || weatherCode >= 61) return LEVELS.HIGH_DEMAND;
-            if (rainProb >= 50 || weatherCode >= 51) return LEVELS.OPPORTUNITY;
+      topTabs.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-top]');
+        if (!button) return;
+        state.activeTop = button.dataset.top;
+        if (state.activeTop === 'today') state.activeArchive = 'today';
+        if (state.activeTop === 'forecast') state.activeArchive = 'future';
+        if (state.activeTop === 'history') state.activeArchive = 'history';
+        syncTopTabs();
+        render();
+      });
 
-            // 小雨/降温
-            if (rainProb >= 30 || weatherCode >= 45) return LEVELS.OPPORTUNITY;
-            if (temp < 5) return LEVELS.OPPORTUNITY; // 寒冷
+      loadWeather();
+    }
 
-            // 正常
-            return LEVELS.NORMAL;
-        }
+    async function loadWeather() {
+      pageTitle.textContent = `${state.city.name}天气档案`;
+      pageSubtitle.textContent = '异常天气事件自动归档';
+      content.innerHTML = '<div class="loading"><div class="spinner"></div>正在加载天气档案...</div>';
 
-        // 获取运营建议
-        function getAdvice(level, rainProb, windSpeed, temp) {
-            const advices = {
-                'high-demand': [
-                    '💰 建议加司机补贴，提升供给',
-                    '📈 乘客需求上升，备足运力',
-                    '⏰ 关注晚高峰时段（18-21点）'
-                ],
-                'opportunity': [
-                    '👀 开始关注天气变化',
-                    '💡 准备补贴预案，视情况启动',
-                    '📊 监控实时发单量趋势'
-                ],
-                'risk': [
-                    '⚠️ 启动应急预案',
-                    '🚫 准备限流措施',
-                    '📢 向司机推送安全提醒'
-                ],
-                'normal': [
-                    '✅ 常规运营',
-                    '📋 保持标准补贴策略'
-                ],
-                'low': [
-                    '⬇️ 减少补贴投入',
-                    '🏠 引导司机休息',
-                    '💤 乘客出行意愿低'
-                ]
-            };
-            return advices[level.code] || advices['normal'];
-        }
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${state.city.lat}&longitude=${state.city.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`天气服务返回 ${response.status}`);
+        const data = await response.json();
+        state.hours = normalizeHours(data.hourly);
+        state.events = detectWeatherEvents(state.hours, new Date());
+        state.updatedAt = formatUpdatedAt(new Date());
+        state.selectedEventId = pickInitialEvent()?.id || null;
+        render();
+      } catch (error) {
+        content.innerHTML = `<div class="error-msg">天气数据加载失败<br>${error.message}</div>`;
+      }
+    }
 
-        // 初始化城市选择器
-        function initCitySelector() {
-            const selector = document.getElementById('citySelector');
-            CITIES.forEach(city => {
-                const btn = document.createElement('button');
-                btn.className = 'city-btn' + (city.name === currentCity.name ? ' active' : '');
-                btn.textContent = city.name;
-                btn.onclick = () => selectCity(city);
-                selector.appendChild(btn);
-            });
-        }
+    function normalizeHours(hourly) {
+      return hourly.time.map((time, index) => ({
+        time,
+        temp: hourly.temperature_2m[index],
+        humidity: hourly.relative_humidity_2m[index],
+        rainProb: hourly.precipitation_probability[index],
+        code: hourly.weather_code[index],
+        wind: hourly.wind_speed_10m[index],
+      }));
+    }
 
-        function selectCity(city) {
-            currentCity = city;
-            document.querySelectorAll('.city-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.textContent === city.name);
-            });
-            if (currentView === 'dashboard') {
-                showCityDetail(city);
-            } else {
-                loadCityData(city);
-            }
-        }
+    function render() {
+      syncTopTabs();
+      pageTitle.textContent = `${state.city.name}天气档案`;
+      pageSubtitle.textContent = `${state.updatedAt} 更新 · 过去5天与未来3天`;
 
-        // 获取日期标签
-        function getDayLabel(date) {
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const target = new Date(date);
-            target.setHours(0,0,0,0);
-            const diff = Math.round((target - today) / 86400000);
+      const current = getCurrentHour();
+      const todayHours = getTodayHours();
+      const hourly = getHeroHours(todayHours, current);
+      const events = getVisibleEvents();
+      const selected = getSelectedEvent(events);
+      const future24 = getFuture24Events();
+      const summary = getHeroSummary(future24);
 
-            const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
-            const weekday = weekdays[date.getDay()];
+      content.innerHTML = `
+        <section class="layout">
+          ${renderWeatherCard(current, hourly, summary)}
+          ${renderArchivePanel(events)}
+          ${renderDetailPanel(selected)}
+        </section>
+      `;
 
-            if (diff === 0) return '今天';
-            if (diff === 1) return '明天';
-            if (diff === -1) return '昨天';
-            if (diff > 1) return diff + '天后';
-            return Math.abs(diff) + '天前';
-        }
+      content.querySelectorAll('[data-archive]').forEach((button) => {
+        button.addEventListener('click', () => {
+          state.activeArchive = button.dataset.archive;
+          if (state.activeArchive === 'today') state.activeTop = 'today';
+          if (state.activeArchive === 'future') state.activeTop = 'forecast';
+          if (state.activeArchive === 'history') state.activeTop = 'history';
+          state.selectedEventId = null;
+          render();
+        });
+      });
 
-        // 按天分组
-        function groupByDay(hourly) {
-            const days = {};
-            for (let i = 0; i < hourly.time.length; i++) {
-                const date = new Date(hourly.time[i]);
-                const dateKey = date.toISOString().split('T')[0];
-                if (!days[dateKey]) {
-                    days[dateKey] = {
-                        date: date,
-                        hours: [],
-                        temps: [],
-                        rainProbs: [],
-                        levels: []
-                    };
-                }
-                const hour = {
-                    time: date.getHours(),
-                    temp: hourly.temperature_2m[i],
-                    humidity: hourly.relative_humidity_2m[i],
-                    rainProb: hourly.precipitation_probability[i],
-                    code: hourly.weather_code[i],
-                    wind: hourly.wind_speed_10m[i],
-                    level: calculateLevel(
-                        hourly.temperature_2m[i],
-                        hourly.precipitation_probability[i],
-                        hourly.wind_speed_10m[i],
-                        hourly.weather_code[i]
-                    )
-                };
-                days[dateKey].hours.push(hour);
-                days[dateKey].temps.push(hour.temp);
-                days[dateKey].rainProbs.push(hour.rainProb);
-                days[dateKey].levels.push(hour.level);
-            }
-            return Object.values(days).sort((a, b) => a.date - b.date);
-        }
+      content.querySelectorAll('[data-event-id]').forEach((button) => {
+        button.addEventListener('click', () => {
+          state.selectedEventId = button.dataset.eventId;
+          render();
+        });
+      });
+    }
 
-        // 获取一天的主导等级
-        function getDominantLevel(levels) {
-            const counts = {};
-            levels.forEach(l => { counts[l.code] = (counts[l.code] || 0) + 1; });
-            let max = 0, dominant = LEVELS.NORMAL;
-            for (const [code, count] of Object.entries(counts)) {
-                if (count > max) {
-                    max = count;
-                    dominant = Object.values(LEVELS).find(l => l.code === code) || LEVELS.NORMAL;
-                }
-            }
-            return dominant;
-        }
+    function renderWeatherCard(current, hourly, summary) {
+      const high = Math.round(Math.max(...getTodayHours().map((hour) => hour.temp)));
+      const low = Math.round(Math.min(...getTodayHours().map((hour) => hour.temp)));
+      const skin = getWeatherSkin(current.code);
 
-        // 加载所有城市数据
-        async function loadAllCities() {
-            const content = document.getElementById('content');
-            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>正在分析全国运营天气...</p></div>';
-
-            try {
-                const promises = CITIES.map(async city => {
-                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
-                    const response = await fetch(url);
-                    const data = await response.json();
-                    const days = groupByDay(data.hourly);
-                    allCityData[city.name] = { data, days };
-                    return { city, days };
-                });
-
-                await Promise.all(promises);
-                renderDashboard();
-            } catch (err) {
-                content.innerHTML = '<div class="error-msg">加载失败，请检查网络后重试<br>' + err.message + '</div>';
-            }
-        }
-
-        // 加载单个城市数据
-        async function loadCityData(city) {
-            if (allCityData[city.name]) {
-                renderCityDetail(city);
-                return;
-            }
-
-            const content = document.getElementById('content');
-            content.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>正在加载 ' + city.name + ' 的运营数据...</p></div>';
-
-            try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
-                const response = await fetch(url);
-                const data = await response.json();
-                const days = groupByDay(data.hourly);
-                allCityData[city.name] = { data, days };
-                renderCityDetail(city);
-            } catch (err) {
-                content.innerHTML = '<div class="error-msg">加载失败，请检查网络后重试<br>' + err.message + '</div>';
-            }
-        }
-
-        // 渲染全局仪表盘
-        function renderDashboard() {
-            currentView = 'dashboard';
-            const content = document.getElementById('content');
-            const today = new Date().toISOString().split('T')[0];
-
-            // 收集今日各城市数据
-            const citySummaries = CITIES.map(city => {
-                const cityInfo = allCityData[city.name];
-                if (!cityInfo) return null;
-                const todayData = cityInfo.days.find(d => d.date.toISOString().split('T')[0] === today);
-                if (!todayData) return null;
-
-                const level = getDominantLevel(todayData.levels);
-                const maxTemp = Math.max(...todayData.temps);
-                const minTemp = Math.min(...todayData.temps);
-                const maxRain = Math.max(...todayData.rainProbs);
-                const dominantCode = todayData.hours[Math.floor(todayData.hours.length / 2)].code;
-
-                return { city, level, maxTemp, minTemp, maxRain, dominantCode, todayData };
-            }).filter(Boolean);
-
-            // 找出预警城市
-            const alerts = citySummaries.filter(s =>
-                s.level.code === 'high-demand' || s.level.code === 'risk' || s.level.code === 'low'
-            );
-
-            let html = '';
-
-            // 预警卡片
-            if (alerts.length > 0) {
-                html += '<div class="alert-section">';
-                alerts.forEach(alert => {
-                    const advice = getAdvice(alert.level, alert.maxRain, 0, alert.maxTemp);
-                    const alertClass = alert.level.code === 'risk' ? '' :
-                                      alert.level.code === 'high-demand' ? 'opportunity' : 'warning';
-                    html += `
-                        <div class="alert-card ${alertClass}">
-                            <div class="alert-icon">${alert.level.icon}</div>
-                            <div class="alert-content">
-                                <div class="alert-title">${alert.city.name} · ${alert.level.label}</div>
-                                <div class="alert-desc">${getWeatherDesc(alert.dominantCode)}，降水概率 ${alert.maxRain}%</div>
-                                <div class="alert-actions">
-                                    ${advice.slice(0, 2).map(a => `<span class="action-tag ${alert.level.code === 'high-demand' ? '' : 'suggest'}">${a}</span>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-            }
-
-            // 城市仪表盘
-            html += `
-                <div class="dashboard-section">
-                    <div class="section-title">🏙️ 城市运营概览（${CITIES.length}城）</div>
-                    <div class="city-grid">
-                        ${citySummaries.map(s => `
-                            <div class="city-item level-${s.level.code}" onclick="showCityDetailByName('${s.city.name}')">
-                                <div class="city-name">${s.city.name}</div>
-                                <div class="city-weather-icon">${getWeatherIcon(s.dominantCode)}</div>
-                                <div class="city-temp">${Math.round(s.minTemp)}° - ${Math.round(s.maxTemp)}°</div>
-                                <div class="city-level">${s.level.icon} ${s.level.label}</div>
-                            </div>
-                        `).join('')}
-                    </div>
+      return `
+        <section class="weather-card skin-${skin}">
+          <div class="weather-art" aria-hidden="true">
+            <i class="cloud c1"></i>
+            <i class="cloud c2"></i>
+            <i class="rain-lines"></i>
+            <i class="snow-dots"></i>
+            <i class="wind-lines"></i>
+          </div>
+          <div class="weather-content">
+            <div class="weather-meta">
+              <span>${state.city.name}市 ${state.city.name} · ${state.updatedAt}更新</span>
+              <span>空气优</span>
+            </div>
+            <div class="temp-row">
+              <div class="temp-now">${Math.round(current.temp)}°</div>
+              <div class="condition">${getWeatherDesc(current.code)}</div>
+            </div>
+            <div class="weather-stats">
+              <span>${low}°~${high}°</span>
+              <span>风速${Math.round(current.wind)}km/h</span>
+              <span>降水${Math.round(current.rainProb)}%</span>
+            </div>
+            <div class="alert-strip">${summary}</div>
+            <div class="hourly-strip">
+              ${hourly.map((hour, index) => `
+                <div class="hour-chip">
+                  <span>${index === 0 ? '现在' : formatHour(hour.time)}</span>
+                  <span class="icon">${getWeatherIcon(hour.code)}</span>
+                  <strong>${Math.round(hour.temp)}°</strong>
+                  <span>${Math.round(hour.rainProb)}%</span>
                 </div>
-            `;
+              `).join('')}
+            </div>
+          </div>
+        </section>
+      `;
+    }
 
-            content.innerHTML = html;
-        }
+    function renderArchivePanel(events) {
+      const total = events.length;
+      return `
+        <section class="panel archive-panel">
+          <div class="section-head">
+            <h2>异常事件档案</h2>
+            <span class="count-pill">${total} 个事件</span>
+          </div>
+          <div class="archive-tabs" aria-label="事件范围">
+            <button class="archive-tab ${state.activeArchive === 'today' ? 'active' : ''}" data-archive="today">今日</button>
+            <button class="archive-tab ${state.activeArchive === 'future' ? 'active' : ''}" data-archive="future">未来3天</button>
+            <button class="archive-tab ${state.activeArchive === 'history' ? 'active' : ''}" data-archive="history">历史5天</button>
+          </div>
+          <div class="event-list">
+            ${events.length ? events.map(renderEventCard).join('') : renderEmptyState()}
+          </div>
+        </section>
+      `;
+    }
 
-        // 显示城市详情
-        function showCityDetailByName(cityName) {
-            const city = CITIES.find(c => c.name === cityName);
-            if (city) showCityDetail(city);
-        }
+    function renderEventCard(event) {
+      const active = event.id === state.selectedEventId ? 'active' : '';
+      return `
+        <button class="event-card ${active}" data-event-id="${event.id}">
+          <div class="event-top">
+            <div class="event-title">
+              <span class="risk-badge risk-${event.risk}">${event.riskLabel}</span>
+              <span>${event.title}</span>
+            </div>
+            <span class="event-time">${event.dateLabel}</span>
+          </div>
+          <div class="event-time">${event.startLabel} - ${event.endLabel} · 峰值 ${event.peakLabel}</div>
+          <div class="event-metric">${event.metricText}</div>
+          <div class="event-bars" aria-hidden="true">${renderBars(event)}</div>
+        </button>
+      `;
+    }
 
-        function showCityDetail(city) {
-            currentView = 'detail';
-            currentCity = city;
-            document.querySelectorAll('.city-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.textContent === city.name);
-            });
-            loadCityData(city);
-        }
+    function renderBars(event) {
+      const values = event.hours.slice(0, 12).map((hour) => {
+        if (event.type === 'rain') return Number(hour.rainProb || 0);
+        if (event.type === 'wind') return Number(hour.wind || 0);
+        if (event.type === 'heat' || event.type === 'cold') return Math.abs(Number(hour.temp || 0));
+        return hour.risk.rank * 22;
+      });
+      const max = Math.max(...values, 1);
+      return values.map((value) => `<i style="height:${Math.max(20, Math.round((value / max) * 100))}%"></i>`).join('');
+    }
 
-        // 渲染城市详情
-        function renderCityDetail(city) {
-            const content = document.getElementById('content');
-            const cityInfo = allCityData[city.name];
-            if (!cityInfo) return;
+    function renderEmptyState() {
+      const copy = {
+        today: '今日暂无已识别的异常天气事件。',
+        future: '未来3天暂无达到归档阈值的预测事件。',
+        history: '过去5天暂无达到归档阈值的历史事件。',
+      };
+      return `<div class="empty-state">${copy[state.activeArchive]}</div>`;
+    }
 
-            const days = cityInfo.days;
-            const today = days.find(d => {
-                const todayStr = new Date().toISOString().split('T')[0];
-                return d.date.toISOString().split('T')[0] === todayStr;
-            }) || days[days.length - 1];
+    function renderDetailPanel(event) {
+      if (!event) {
+        return `
+          <section class="panel detail-panel">
+            <div class="empty-state">选择一个异常天气事件后，这里会展示判定依据和逐小时证据。</div>
+          </section>
+        `;
+      }
 
-            const level = getDominantLevel(today.levels);
-            const advice = getAdvice(level, Math.max(...today.rainProbs), 0, Math.max(...today.temps));
+      return `
+        <section class="panel detail-panel">
+          <div class="detail-title">
+            <div>
+              <h2>${event.title}</h2>
+              <p>${event.dateLabel} ${event.startLabel} - ${event.endLabel}</p>
+            </div>
+            <span class="risk-badge risk-${event.risk}">${event.riskLabel}</span>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><label>持续时间</label><strong>${event.durationHours} 小时</strong></div>
+            <div class="metric"><label>峰值时段</label><strong>${event.peakLabel}</strong></div>
+            <div class="metric"><label>关键指标</label><strong>${event.metricText.replace(' ', '<br>')}</strong></div>
+          </div>
+          <div class="reason-box">${event.reason}</div>
+          <div class="evidence-table">
+            <div class="evidence-row"><span>时间</span><span>天气</span><span>降水</span><span>风险</span></div>
+            ${event.hours.map((hour) => `
+              <div class="evidence-row">
+                <span>${hour.label}</span>
+                <span>${hour.icon} ${hour.desc}</span>
+                <span>${Math.round(hour.rainProb)}%</span>
+                <span>${hour.risk.label}</span>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `;
+    }
 
-            // 找出未来24小时内的异常时段
-            const futureHours = today.hours.filter(h => h.time >= new Date().getHours());
-            const alertHours = futureHours.filter(h =>
-                h.level.code === 'high-demand' || h.level.code === 'risk'
-            );
+    function getCurrentHour() {
+      const now = Date.now();
+      return state.hours.reduce((best, hour) => {
+        const diff = Math.abs(new Date(hour.time).getTime() - now);
+        const bestDiff = Math.abs(new Date(best.time).getTime() - now);
+        return diff < bestDiff ? hour : best;
+      }, state.hours[0]);
+    }
 
-            let html = '';
+    function getTodayHours() {
+      const today = getLocalDateKey(new Date());
+      const hours = state.hours.filter((hour) => getLocalDateKey(hour.time) === today);
+      return hours.length ? hours : state.hours.slice(0, 24);
+    }
 
-            // 返回按钮 + 城市名
-            html += `
-                <div class="detail-section">
-                    <div class="detail-header">
-                        <div>
-                            <span style="cursor:pointer;color:var(--text-muted);font-size:14px;" onclick="renderDashboard()">← 返回概览</span>
-                            <div class="detail-city" style="margin-top:8px;">${city.name}</div>
-                        </div>
-                        <div class="detail-level" style="background:${level.color}15;color:${level.color};">
-                            ${level.icon} ${level.label}
-                        </div>
-                    </div>
+    function getHeroHours(todayHours, current) {
+      const currentIndex = Math.max(0, todayHours.findIndex((hour) => hour.time === current.time));
+      const picked = todayHours.slice(currentIndex, currentIndex + 4);
+      return picked.length >= 4 ? picked : todayHours.slice(0, 4);
+    }
 
-                    <div class="detail-summary">
-                        <div class="detail-summary-title">📋 今日运营判断</div>
-                        <div class="detail-summary-text">
-                            今日${city.name}${getDayLabel(today.date)}天气以${getWeatherDesc(today.hours[0].code)}为主，
-                            最高气温${Math.round(Math.max(...today.temps))}°，最低气温${Math.round(Math.min(...today.temps))}°，
-                            最大降水概率${Math.max(...today.rainProbs)}%。
-                            ${alertHours.length > 0 ? `未来24小时内有${alertHours.length}个时段需要关注。` : '全天运营条件相对平稳。'}
-                        </div>
-                    </div>
+    function getFuture24Events() {
+      const now = new Date();
+      const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      return state.events.filter((event) => event.end >= now && event.start <= end);
+    }
 
-                    <div class="detail-advice">
-                        ${advice.map(a => `
-                            <div class="advice-item">
-                                <span class="advice-icon">${a.split(' ')[0]}</span>
-                                <span class="advice-text">${a.substring(2)}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
+    function getHeroSummary(events) {
+      if (!events.length) return '未来24小时暂无高风险异常天气事件';
+      const top = [...events].sort((a, b) => RISK_META[b.risk].rank - RISK_META[a.risk].rank || a.start - b.start)[0];
+      return `${top.title}将在${top.startLabel}后增强，已归档 ${events.length} 个预测事件`;
+    }
 
-            // Tab 切换
-            html += `
-                <div class="tab-bar">
-                    <button class="tab-btn active" onclick="switchTab('today')" id="tab-today">今日逐时</button>
-                    <button class="tab-btn" onclick="switchTab('future')" id="tab-future">未来3天</button>
-                    <button class="tab-btn" onclick="switchTab('history')" id="tab-history">过去5天</button>
-                </div>
-            `;
+    function getVisibleEvents() {
+      const today = getLocalDateKey(new Date());
+      if (state.activeArchive === 'today') {
+        return state.events.filter((event) => event.dateKey === today);
+      }
+      if (state.activeArchive === 'future') {
+        return state.events.filter((event) => event.dateKey > today);
+      }
+      return state.events.filter((event) => event.dateKey < today).reverse();
+    }
 
-            // 今日逐时
-            html += '<div id="view-today">';
-            html += '<div class="detail-section">';
-            html += '<div class="hourly-title">⏰ 逐小时运营建议</div>';
+    function getSelectedEvent(events) {
+      if (!events.length) return null;
+      const selected = events.find((event) => event.id === state.selectedEventId);
+      if (selected) return selected;
+      state.selectedEventId = events[0].id;
+      return events[0];
+    }
 
-            today.hours.forEach(h => {
-                const levelClass = `level-tag-${h.level.code}`;
-                html += `
-                    <div class="hour-row">
-                        <div class="hour-time">${h.time.toString().padStart(2,'0')}:00</div>
-                        <div class="hour-icon">${getWeatherIcon(h.code)}</div>
-                        <div class="hour-desc">${getWeatherDesc(h.code)}</div>
-                        <div class="hour-temp">${Math.round(h.temp)}°</div>
-                        <div class="hour-level ${levelClass}">${h.level.label}</div>
-                    </div>
-                `;
-            });
-            html += '</div></div>';
+    function pickInitialEvent() {
+      return getVisibleEvents()[0] || state.events[0] || null;
+    }
 
-            // 未来3天
-            html += '<div id="view-future" style="display:none;">';
-            const futureDays = days.filter(d => d.date >= new Date(new Date().setHours(0,0,0,0)));
-            futureDays.forEach(day => {
-                const dayLevel = getDominantLevel(day.levels);
-                html += `
-                    <div class="detail-section">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                            <span style="font-weight:600;">${getDayLabel(day.date)} ${day.date.getMonth()+1}/${day.date.getDate()}</span>
-                            <span style="padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;background:${dayLevel.color}15;color:${dayLevel.color};">
-                                ${dayLevel.icon} ${dayLevel.label}
-                            </span>
-                        </div>
-                        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
-                            ${getWeatherDesc(day.hours[Math.floor(day.hours.length/2)].code)}，
-                            气温 ${Math.round(Math.min(...day.temps))}°-${Math.round(Math.max(...day.temps))}°，
-                            最大降水 ${Math.max(...day.rainProbs)}%
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
+    function syncTopTabs() {
+      topTabs.querySelectorAll('[data-top]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.top === state.activeTop);
+      });
+    }
 
-            // 过去5天
-            html += '<div id="view-history" style="display:none;">';
-            html += '<div class="detail-section">';
-            html += '<div class="section-title">📅 过去5天复盘</div>';
-            html += '<div class="history-list">';
-            const historyDays = days.filter(d => d.date < new Date(new Date().setHours(0,0,0,0)));
-            historyDays.forEach(day => {
-                const dayLevel = getDominantLevel(day.levels);
-                const dominantCode = day.hours[Math.floor(day.hours.length/2)].code;
-                html += `
-                    <div class="history-item">
-                        <div class="history-date">${getDayLabel(day.date)}</div>
-                        <div class="history-icon">${getWeatherIcon(dominantCode)}</div>
-                        <div class="history-info">
-                            <div class="history-weather">${getWeatherDesc(dominantCode)} ${Math.round(Math.min(...day.temps))}°-${Math.round(Math.max(...day.temps))}°</div>
-                        </div>
-                        <div class="history-level" style="background:${dayLevel.color}15;color:${dayLevel.color};">
-                            ${dayLevel.icon} ${dayLevel.label}
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div></div></div>';
+    function formatHour(value) {
+      return `${String(new Date(value).getHours()).padStart(2, '0')}:00`;
+    }
 
-            content.innerHTML = html;
-        }
+    function formatUpdatedAt(date) {
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
 
-        // Tab 切换
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('tab-' + tab).classList.add('active');
-
-            document.getElementById('view-today').style.display = tab === 'today' ? 'block' : 'none';
-            document.getElementById('view-future').style.display = tab === 'future' ? 'block' : 'none';
-            document.getElementById('view-history').style.display = tab === 'history' ? 'block' : 'none';
-        }
-
-        // 设置日期
-        function setHeaderDate() {
-            const now = new Date();
-            const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
-            const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
-            document.getElementById('headerDate').textContent = dateStr + ' ' + weekdays[now.getDay()];
-        }
-
-        // Init
-        setHeaderDate();
-        initCitySelector();
-        loadAllCities();
-    </script>
+    init();
+  </script>
 </body>
 </html>
