@@ -817,7 +817,7 @@
       content.innerHTML = '<div class="loading"><div class="spinner"></div>正在加载天气档案...</div>';
 
       try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${state.city.lat}&longitude=${state.city.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${state.city.lat}&longitude=${state.city.lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,weather_code,wind_speed_10m&past_days=5&forecast_days=3&timezone=Asia%2FShanghai`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`天气服务返回 ${response.status}`);
         const data = await response.json();
@@ -836,6 +836,7 @@
         time,
         temp: hourly.temperature_2m[index],
         humidity: hourly.relative_humidity_2m[index],
+        precipitation: hourly.precipitation?.[index] ?? 0,
         rainProb: hourly.precipitation_probability[index],
         code: hourly.weather_code[index],
         wind: hourly.wind_speed_10m[index],
@@ -957,7 +958,7 @@
             </div>
             <span class="event-time">${event.dateLabel}</span>
           </div>
-          <div class="event-time">${event.startLabel} - ${event.endLabel} · 峰值 ${event.peakLabel}</div>
+          <div class="event-time">${event.timeRangeLabel} · 峰值 ${event.peakLabel}</div>
           <div class="event-metric">${event.metricText}</div>
           <div class="event-bars" aria-hidden="true">${renderBars(event)}</div>
         </button>
@@ -966,7 +967,9 @@
 
     function renderBars(event) {
       const values = event.hours.slice(0, 12).map((hour) => {
-        if (event.type === 'rain') return Number(hour.rainProb || 0);
+        if (event.type === 'rain') return event.rainMode === 'observed'
+          ? Number(hour.precipitation || 0)
+          : Number(hour.rainProb || 0);
         if (event.type === 'wind') return Number(hour.wind || 0);
         if (event.type === 'heat' || event.type === 'cold') return Math.abs(Number(hour.temp || 0));
         return hour.risk.rank * 22;
@@ -998,7 +1001,7 @@
           <div class="detail-title">
             <div>
               <h2>${event.title}</h2>
-              <p>${event.dateLabel} ${event.startLabel} - ${event.endLabel}</p>
+              <p>${event.detailRangeLabel}</p>
             </div>
             <span class="risk-badge risk-${event.risk}">${event.riskLabel}</span>
           </div>
@@ -1009,18 +1012,32 @@
           </div>
           <div class="reason-box">${event.reason}</div>
           <div class="evidence-table">
-            <div class="evidence-row"><span>时间</span><span>天气</span><span>降水</span><span>风险</span></div>
+            <div class="evidence-row"><span>时间</span><span>天气</span><span>${getRainEvidenceLabel(event)}</span><span>风险</span></div>
             ${event.hours.map((hour) => `
               <div class="evidence-row">
                 <span>${hour.label}</span>
                 <span>${hour.icon} ${hour.desc}</span>
-                <span>${Math.round(hour.rainProb)}%</span>
+                <span>${formatRainEvidenceValue(event, hour)}</span>
                 <span>${hour.risk.label}</span>
               </div>
             `).join('')}
           </div>
         </section>
       `;
+    }
+
+    function getRainEvidenceLabel(event) {
+      if (event.type !== 'rain') return '降水';
+      return event.rainMode === 'observed' ? '降水量' : '概率';
+    }
+
+    function formatRainEvidenceValue(event, hour) {
+      if (event.type !== 'rain') return `${Math.round(hour.rainProb)}%`;
+      if (event.rainMode === 'observed') {
+        const value = Math.round(Number(hour.precipitation || 0) * 10) / 10;
+        return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}mm`;
+      }
+      return `${Math.round(hour.rainProb)}%`;
     }
 
     function getCurrentHour() {
